@@ -1,0 +1,15 @@
+version: '2'
+
+networks:
+  covis:
+    driver: bridge
+
+services:
+  rabbitmq:
+    image: 'bitnami/rabbitmq:latest'
+    networks:
+      - covis
+  myapp:
+    build: Dockerfile
+    networks:
+      - covis
