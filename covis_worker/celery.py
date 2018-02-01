@@ -1,9 +1,10 @@
 from __future__ import absolute_import, unicode_literals
 from celery import Celery
+from os import getenv
 
 app = Celery('covis-worker',
-             broker='amqp://user:bitnami@rabbitmq/',
-             backend='amqp://user:bitnami@rabbitmq/',
+             broker=getenv("COVIS_CELERY_BROKER",'amqp://user:bitnami@rabbitmq/'),
+             backend=getenv("COVIS_CELERY_BACKEND",'amqp://user:bitnami@rabbitmq/'),
              include=['covis_worker.example_tasks'])
 
 # Optional configuration, see the application user guide.
