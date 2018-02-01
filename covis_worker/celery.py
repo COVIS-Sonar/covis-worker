@@ -2,8 +2,8 @@ from __future__ import absolute_import, unicode_literals
 from celery import Celery
 
 app = Celery('covis-worker',
-             broker='amqp://user:bitnami@localhost/',
-             backend='amqp://user:bitnami@localhost/',
+             broker='amqp://user:bitnami@rabbitmq/',
+             backend='amqp://user:bitnami@rabbitmq/',
              include=['covis_worker.example_tasks'])
 
 # Optional configuration, see the application user guide.

@@ -9,7 +9,12 @@ services:
     image: 'bitnami/rabbitmq:latest'
     networks:
       - covis
-  myapp:
-    build: Dockerfile
+
+  worker:
+    build: .
+    depends_on:
+      - rabbitmq
     networks:
       - covis
+    links:
+      - rabbitmq
