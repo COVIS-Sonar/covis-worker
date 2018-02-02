@@ -3,50 +3,78 @@
 import json
 import argparse
 import re
+import logging
 from datetime import datetime
 
+import pymongo
 from pymongo import MongoClient
 import os.path
+
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('infile', nargs=1,
                     help="JSON file to be processed",
                     type=argparse.FileType('r'))
-arguments = parser.parse_args()
+
+parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
+                    help='Logging level')
+
+args = parser.parse_args()
+
+logging.basicConfig( level=args.log.upper() )
 
 # Loading a JSON object returns a dict.
-j = json.load(arguments.infile[0])
+j = json.load(args.infile[0])
+
+client = MongoClient()
+db = client.covis
+runs = db.runs
 
 
-db_elements = []
+runs.create_index( "name", unique=True )
 
-for elem in j:
+for filename in j:
 
-    if not elem.lower().endswith(".tar"):
+    if not filename.lower().endswith(".tar"):
         continue
 
     ## Strip off extension
-    elem = os.path.splitext(elem)[0]
+    elem = os.path.splitext(filename)[0]
 
     ## Break filename apart
     parts = re.split(r'[\_\-]', elem)
 
-    print(parts)
-
+    basename = elem
     date = datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
     mode = parts[2]
 
     # Insert validation here
+    file_entry = { 'host': 'DMAS',
+            'compression': "gz" }
 
-    db_elements.append( {'name': elem,
-                         'datetime': date,
-                        'type': mode,
-                        'site': 'ONC'})
+    entry = { 'filename': filename,
+            'datetime': date,
+            'mode': mode,
+            'site': 'ONC' }
 
-## Insert into db
 
-print(db_elements)
+    try:
+        # This seems awkward, make a complete entry
+        new_entry = {'name': basename,
+                     'files': [file_entry]}
+        new_entry.update(entry)
 
-client = MongoClient()
-db = client.covis
-db.runs.insert_many(db_elements)
+        runs.insert_one( new_entry )
+        logging.info("Added entry to db for %s" % basename)
+
+    except pymongo.errors.DuplicateKeyError as err:
+        logging.info("Updating existing entry for %s" % basename)
+
+        res = runs.update_one(
+            {'name': basename},
+            { '$set': entry,
+              '$pull': { "files": { "host": "dmas" } } } )
+        runs.update_one(
+            {'name': basename},
+            { '$push': { "files": file_entry } } )
