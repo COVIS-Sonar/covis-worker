@@ -10,6 +10,10 @@ import pymongo
 from pymongo import MongoClient
 import os.path
 
+import csv
+
+
+from itertools import islice
 
 
 parser = argparse.ArgumentParser()
@@ -20,49 +24,84 @@ parser.add_argument('infile', nargs=1,
 parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
                     help='Logging level')
 
+group = parser.add_mutually_exclusive_group()
+group.add_argument('--dmas', dest="dmas", action='store_true')
+group.add_argument('--covis-nas', nargs=1 )
+
 args = parser.parse_args()
 
 logging.basicConfig( level=args.log.upper() )
 
-# Loading a JSON object returns a dict.
-j = json.load(args.infile[0])
+
+files = []
+
+if args.dmas:
+
+    # The DMAS data is just a list of filenames in JSON
+    for filename in json.load(args.infile[0]):
+
+        ## Strip off extension
+        elem = os.path.splitext(filename)
+
+        if elem[1] != '.tar':
+            continue
+
+        files.append( { 'basename': elem[0],
+                        'file_entry': { 'host': "DMAS",
+                                'filename': filename }})
+
+elif args.covis_nas:
+    # logging.info("Handling covis-nas data")
+    #
+    for row in args.infile[0].readlines():
+        row = row.split()
+
+        if( len(row) != 3 ):
+            continue
+
+        filename = re.sub("^\.", "/Data/raw", row[2])
+
+        ## Need to extract basename
+        basename = re.sub( "\.[\.\w]*\Z", "", os.path.basename(filename) )
+
+        files.append( { 'basename': basename,
+                        'file_entry': { 'host': args.covis_nas[0].upper(),
+                                'filename': filename }} )
+
+else:
+
+    logging.error("Pleae use either --dmas or --covis-nas")
+
 
 client = MongoClient()
 db = client.covis
 runs = db.runs
 
+runs.create_index( "basename", unique=True )
 
-runs.create_index( "name", unique=True )
+## Take the input file and create a dict of { basename : {file_entry}}
 
-for filename in j:
-
-    if not filename.lower().endswith(".tar"):
-        continue
-
-    ## Strip off extension
-    elem = os.path.splitext(filename)[0]
+for entry in files:
 
     ## Break filename apart
-    parts = re.split(r'[\_\-]', elem)
+    basename = entry['basename']
+    parts = re.split(r'[\_\-]', basename)
 
-    basename = elem
     date = datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
     mode = parts[2]
 
     # Insert validation here
-    file_entry = { 'host': 'DMAS',
-            'compression': "gz" }
+    file_entry = entry['file_entry']
 
-    entry = { 'filename': filename,
-            'datetime': date,
+    entry = { 'datetime': date,
             'mode': mode,
             'site': 'ONC' }
 
 
     try:
         # This seems awkward, make a complete entry
-        new_entry = {'name': basename,
-                     'files': [file_entry]}
+        new_entry = {'basename': basename,
+                     'raw': [file_entry]}
         new_entry.update(entry)
 
         runs.insert_one( new_entry )
@@ -72,9 +111,9 @@ for filename in j:
         logging.info("Updating existing entry for %s" % basename)
 
         res = runs.update_one(
-            {'name': basename},
+            {'basename': basename},
             { '$set': entry,
-              '$pull': { "files": { "host": "dmas" } } } )
+              '$pull': { "raw": { "host": file_entry['host'] } } } )
         runs.update_one(
-            {'name': basename},
-            { '$push': { "files": file_entry } } )
+            {'basename': basename},
+            { '$push': { "raw": file_entry } } )
