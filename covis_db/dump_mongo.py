@@ -9,7 +9,7 @@ from pymongo import MongoClient
 client = MongoClient()
 db = client.covis
 runs = db.runs
-cursor = runs.find()
+cursor = runs.find().sort('datetime')
 
 for elem in cursor:
     pprint(elem)
