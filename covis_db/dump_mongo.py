@@ -13,4 +13,4 @@ cursor = runs.find()
 for elem in cursor:
     pprint(elem)
 
-print("%d elements in total" % cursor.count())
+print("%d elements in total" % cursor.count(), file=sys.stderr)

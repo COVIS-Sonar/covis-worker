@@ -105,7 +105,7 @@ for entry in files:
         new_entry.update(entry)
 
         runs.insert_one( new_entry )
-        logging.info("Added entry to db for %s" % basename)
+        logging.info("Adding entry to db for %s" % basename)
 
     except pymongo.errors.DuplicateKeyError as err:
         logging.info("Updating existing entry for %s" % basename)
