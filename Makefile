@@ -29,7 +29,7 @@ import_covis_nas:
 	$(foreach var,$(COVIS_NAS),covis_db/import_dmas_archive_file_list.py --log INFO --covis-nas covis-nas$(var) seed_data/covis-nas$(var).txt;)
 
 dump:
-	covis_db/dump_mongo.py
+	covis_db/dump_mongo.py > dump.json
 
 
 backup:
