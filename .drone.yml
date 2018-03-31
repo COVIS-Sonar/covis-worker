@@ -6,8 +6,8 @@ pipeline:
 
   build_docker:
     image: plugins/docker
-    environment:
-      - BASE_IMAGE=amarburg/covis-postprocess:${DRONE_REPO_OWNER}-latest
+    build_args:
+      - BASE_IMAGE=${DRONE_REPO_OWNER}-latest
 
   slack:
     image: plugins/slack

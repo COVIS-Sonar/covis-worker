@@ -1,5 +1,5 @@
-ENV BASE_IMAGE=amarburg/covis-postprocess:latest
-FROM $BASE_IMAGE
+ARG BASE_IMAGE=amarburg-latest
+FROM amarburg/covis-postprocess:${BASE_IMAGE}
 
 # Additional tools we need for alpine
 RUN apk add --no-cache bash
