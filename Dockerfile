@@ -1,5 +1,4 @@
-EVN BASE_IMAGE=amarburg/covis-postprocess:latest
-
+ENV BASE_IMAGE=amarburg/covis-postprocess:latest
 FROM $BASE_IMAGE
 
 # Additional tools we need for alpine
