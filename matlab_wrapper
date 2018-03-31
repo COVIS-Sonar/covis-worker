@@ -4,4 +4,4 @@
 LD_LIBRARY_PATH=$MATLAB_LD_LIBRARY_PATH
 export LD_LIBRARY_PATH
 
-celery "$@"
+"$@"

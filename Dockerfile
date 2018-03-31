@@ -1,9 +1,6 @@
 ARG BASE_IMAGE=amarburg-latest
 FROM amarburg/covis-postprocess:${BASE_IMAGE}
 
-# Additional tools we need for alpine
-RUN apk add --no-cache bash
-
 ADD . /root/worker
 WORKDIR /root/worker
 
@@ -14,8 +11,8 @@ RUN pip install -r requirements.txt
 #    chown -R worker:worker /code
 #USER worker
 
-ENTRYPOINT ["/root/worker/mw_python"]
-CMD ["-A", "covis_worker", "worker", "-l", "info"]
+ENTRYPOINT ["/root/worker/matlab_wrapper"]
+CMD ["celery", "-A", "covis_worker", "worker", "-l", "info"]
 
 
 #CMD ["./wait-for-it.sh", "rabbitmq:5672", "--", "celery", "-A", "covis_worker", "worker", "-l", "info"]
