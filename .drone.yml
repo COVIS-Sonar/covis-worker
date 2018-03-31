@@ -1,0 +1,13 @@
+pipeline:
+  test:
+    image:  amarburg/covis-postprocess:${DRONE_REPO_OWNER}-latest
+    commands:
+      - ls -al
+
+  slack:
+    image: plugins/slack
+    secrets: [ slack_webhook ]
+    when:
+      status:
+        - success
+        - failure
