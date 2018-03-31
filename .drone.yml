@@ -6,6 +6,8 @@ pipeline:
 
   build_docker:
     image: plugins/docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     build_args:
       - BASE_IMAGE=${DRONE_REPO_OWNER}-latest
 
