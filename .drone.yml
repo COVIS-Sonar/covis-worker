@@ -10,7 +10,7 @@ pipeline:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     commands:
-      - cd Deploy && docker build -t amarburg/covis-worker:latest \
+      - docker build -t amarburg/covis-worker:latest \
               -t amarburg/covis-worker:${DRONE_REPO_OWNER}-latest \
               -t amarburg/covis-worker:${DRONE_REPO_OWNER}-${DRONE_COMMIT_SHA} .
 
