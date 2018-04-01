@@ -4,12 +4,15 @@ pipeline:
     commands:
       - ls -al
 
+  ## Build a test docker image
   build_docker:
-    image: plugins/docker
+    image: docker:latest
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    build_args:
-      - BASE_IMAGE=${DRONE_REPO_OWNER}-latest
+    commands:
+      - cd Deploy && docker build -t amarburg/covis-worker:latest \
+              -t amarburg/covis-worker:${DRONE_REPO_OWNER}-latest \
+              -t amarburg/covis-worker:${DRONE_REPO_OWNER}-${DRONE_COMMIT_SHA} .
 
   slack:
     image: plugins/slack
