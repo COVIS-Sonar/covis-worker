@@ -9,5 +9,5 @@ setup(name='covis_db',
       author_email='amarburg@apl.washington.edu',
       url='',
       packages=['covis_db'],
-      install_requires=['minio','pymongo']
+      install_requires=['minio','pymongo','libarchive']
      )

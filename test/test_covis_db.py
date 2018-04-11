@@ -11,25 +11,23 @@ def test_find_basenames():
     db = CovisDB()
 
     for bn in good_basenames:
-        results = db.find(basename=bn)
-        assert results
-        assert len(results) == 1
+        result = db.find(basename=bn)
+        assert result
 
     for bn in bad_basenames:
-        results = db.find(basename=bn)
-        assert results == []
+        result = db.find(basename=bn)
+        assert not result
 
 
 def test_covis_run():
 
     db = CovisDB()
 
-    results = db.find(basename=good_basenames[0])
+    result = db.find(basename=good_basenames[0])
 
-    assert len(results) == 1
+    assert result
 
-    run = results[0]
-    assert run.mode == "DIFFUSE"
+    assert result.mode == "DIFFUSE"
 
-    assert run.raw.at("old-covis-nas") == False
-    assert run.raw.at("dmas") == True
+    assert result.raw.at("old-covis-nas") == False
+    assert result.raw.at("dmas") == True

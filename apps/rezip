@@ -4,7 +4,8 @@ import argparse
 import logging
 import pathlib
 import gzip
-import lzma
+import shutil
+from subprocess import Popen,PIPE
 
 from pymongo import MongoClient
 from covis_db.db import CovisDB
@@ -53,12 +54,15 @@ for basename in args.infile:
     f = result.raw.stream()
 
     if not f:
-        print("Unabled to get file %s" % basename)
+        print("Unable to get file %s" % basename)
         continue
 
-    data=gzip.GzipFile(fileobj=f).read()
-    with lzma.open(outfile, 'wb') as out:
-        out.write(data)
+    print(f.info())
+
+    command = ["7z", "a", "-si", "-y", outfile]
+    with Popen(command, stdin=PIPE) as process:
+        with gzip.GzipFile(fileobj=f) as data:
+            shutil.copyfileobj(data, process.stdin)
 
     # with gzip.GzipFile(fileobj=f) as gz:
     #     with open(outfile, 'wb') as out:

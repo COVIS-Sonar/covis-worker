@@ -11,16 +11,13 @@ def test_covis_raw(monkeypatch):
 
     db = CovisDB()
 
-    results = db.find( basename=basename_on_nas[0])
+    result = db.find( basename=basename_on_nas[0])
 
-    assert len(results) == 1
+    assert result.mode == "DIFFUSE"
 
-    run = results[0]
-    assert run.mode == "DIFFUSE"
+    assert result.raw.at("old-covis-nas") == True
 
-    assert run.raw.at("old-covis-nas") == True
-
-    f = run.raw.stream()
+    f = result.raw.stream()
 
     assert f
 

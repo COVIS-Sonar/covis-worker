@@ -24,10 +24,12 @@ class CovisDB:
         print("Searching for basename: %s" % (basename))
 
         # Expect small returns, so unwrap
-        cursor = self.runs.find( {'basename': basename})
+        r = self.runs.find_one({'basename': basename})
 
-        return [CovisRun(p) for p in cursor]
-
+        if r:
+            return CovisRun(r)
+        else:
+            return None
 
 class CovisRun:
 

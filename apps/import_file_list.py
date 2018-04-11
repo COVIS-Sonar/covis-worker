@@ -79,7 +79,7 @@ client = MongoClient( args.dbhost )
 db = client.covis
 runs = db.runs
 
-runs.create_index( "basename", unique=True )
+runs.create_index( "basename", unique=True)
 
 ## Take the input file and create a dict of { basename : {file_entry}}
 
