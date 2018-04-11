@@ -2,7 +2,7 @@
 from pymongo import MongoClient
 import re
 
-from . import remote_data
+from . import remote
 
 class CovisDB:
 
@@ -34,12 +34,14 @@ class CovisRun:
     def __init__(self, json):
         self.json = json
 
+    @property
     def datetime(self):
         return self.json["datetime"]
 
+    @property
     def mode(self):
         return self.json["mode"]
 
     @property
     def raw(self):
-        return remote_data.CovisRaw(self, self.json["raw"])
+        return remote.CovisRaw(self, self.json["raw"])

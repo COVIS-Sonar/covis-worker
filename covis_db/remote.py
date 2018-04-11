@@ -2,15 +2,10 @@
 
 import os
 import re
+import pathlib
 
 from minio import Minio
 from minio.error import ResponseError
-
-
-## Constant configuration for now...
-old_covis_nas_hostname = os.getenv("OLD_COVIS_NAS_HOSTNAME","covis-data.apl.washington.edu")
-old_covis_nas_minio_map = { 1: 9000,
-                            2: 9001 }
 
 
 re_old_covis_nas = re.compile( r"covis-nas\d", re.IGNORECASE)
@@ -31,9 +26,18 @@ def site_to_re(site):
 
 class CovisRaw:
 
+    # Constant configuration for now...
+    #old_covis_nas_hostname = os.getenv("OLD_COVIS_NAS_HOSTNAME","10.95.97.79") #covis-data.apl.washington.edu")
+    old_covis_nas_minio_map = { 1: 9001,
+                                2: 9002 }
+
     def __init__(self,run,raw):
         self.run = run
         self.raw = raw
+
+    def old_covis_nas_hostname(self):
+        return "localhost"
+#        return "10.95.97.79"
 
     def at(self,site):
         re = site_to_re(site)
@@ -70,24 +74,31 @@ class CovisRaw:
             return None
 
         nas_id = int(nas_id)
-        port = old_covis_nas_minio_map[nas_id]
+        port = self.old_covis_nas_minio_map[nas_id]
 
         if not port:
             return None
 
-        full_hostname = "%s:%d" % (old_covis_nas_hostname, port)
+        full_hostname = "%s:%d" % (self.old_covis_nas_hostname(), port)
+        #print("Accessing minio host: %s" % full_hostname)
+
         client = Minio(full_hostname,
                   access_key='covis',
-                  secret_key='coviscovis')
+                  secret_key='coviscovis',
+                  secure=False)
 
         bucket = "raw"
-        filename = "%04/%02d/%02d/%s.gz" % (self.run.datetime.year,
-                        self.run.datetime.month, self.run.datetime.day,
-                        self.raw['filename'])
+        # filename = "/".join([ "%04d" % self.run.datetime.year,
+        #                       "%02d" % self.run.datetime.month,
+        #                       "%02d" % self.run.datetime.day,
+        #                       raw['filename']])
 
-        print("Looking for filename \"%s\"" % filename)
+        p = pathlib.Path(raw['filename'])
+        filename = "/".join(p.parts[3:])
 
-        return minioClient.get_object(bucket, filename)
+        #print("Looking for filename \"%s\"" % filename)
+
+        return client.get_object(bucket, filename)
 
 
     def nas_stream(self,raw):

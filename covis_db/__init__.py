@@ -1,2 +1,2 @@
 
-__all__ = ["remote_data","covis_db"]
+__all__ = ["db","remote"]

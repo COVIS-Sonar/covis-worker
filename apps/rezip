@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
+import pathlib
+import gzip
+import lzma
+
+from pymongo import MongoClient
+from covis_db.db import CovisDB
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('infile', nargs='*',
+                    help="Basenames to process")
+
+parser.add_argument('--log', nargs='?', default='WARNING',
+                    help='Logging level')
+
+parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
+
+parser.add_argument('--outdir',
+                    default='.', help="Output directory")
+
+args = parser.parse_args()
+
+logging.basicConfig(level=args.log.upper())
+
+
+db = CovisDB(MongoClient(args.dbhost))
+if not db:
+    print("Unable to contact Mongodb at %s" % args.dbhost)
+    exit(-1)
+
+
+for basename in args.infile:
+    print(basename)
+
+    results = db.find(basename=basename)
+    result = results[0]
+
+    if len(results) == 0:
+        print("Unable to find basename %s" % basename)
+        continue
+    elif len(results) > 1:
+        print("Found multiple instances of %s, skipping..." % basename)
+        continue
+
+    # Set output filename
+
+    outfile = pathlib.Path(args.outdir, basename+".tar.7z")
+
+    f = result.raw.stream()
+
+    if not f:
+        print("Unabled to get file %s" % basename)
+        continue
+
+    data=gzip.GzipFile(fileobj=f).read()
+    with lzma.open(outfile, 'wb') as out:
+        out.write(data)
+
+    # with gzip.GzipFile(fileobj=f) as gz:
+    #     with open(outfile, 'wb') as out:
+    #         for d in gz.read(256*1024):
+    #             out.write(d)
