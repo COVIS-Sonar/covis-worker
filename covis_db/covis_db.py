@@ -1,10 +1,12 @@
 
 from pymongo import MongoClient
+import re
 
+from . import remote_data
 
 class CovisDB:
 
-    def __init__( self, db_client = None ):
+    def __init__(self, db_client = None):
 
         if db_client:
             self.client = db_client
@@ -19,9 +21,9 @@ class CovisDB:
             return self.find_by_basename(basename)
 
     def find_by_basename(self, basename):
-        print("Searching for basename: %s" % basename)
+        print("Searching for basename: %s" % (basename))
 
-        ## Expect small returns, so unwrap
+        # Expect small returns, so unwrap
         cursor = self.runs.find( {'basename': basename})
 
         return [CovisRun(p) for p in cursor]
@@ -37,3 +39,7 @@ class CovisRun:
 
     def mode(self):
         return self.json["mode"]
+
+    @property
+    def raw(self):
+        return remote_data.CovisRaw(self, self.json["raw"])

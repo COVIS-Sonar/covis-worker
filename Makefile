@@ -39,7 +39,7 @@ import_all: import_dmas import_covis_nas
 
 
 dump:
-	covis_db/dump_mongo.py > dump.json
+	apps/dump_mongo.py > dump.json
 
 
 backup:
