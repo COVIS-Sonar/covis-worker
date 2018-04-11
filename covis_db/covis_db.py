@@ -24,4 +24,16 @@ class CovisDB:
         ## Expect small returns, so unwrap
         cursor = self.runs.find( {'basename': basename})
 
-        return [p for p in cursor]
+        return [CovisRun(p) for p in cursor]
+
+
+class CovisRun:
+
+    def __init__(self, json):
+        self.json = json
+
+    def datetime(self):
+        return self.json["datetime"]
+
+    def mode(self):
+        return self.json["mode"]
