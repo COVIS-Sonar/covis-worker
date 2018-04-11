@@ -1,2 +1,2 @@
 
-from . import *
+__all__ = ["covis_db"]

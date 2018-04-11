@@ -24,6 +24,8 @@ parser.add_argument('infile', nargs=1,
 parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
                     help='Logging level')
 
+parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
+
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--dmas', dest="dmas", action='store_true')
 group.add_argument('--covis-nas', nargs=1 )
@@ -73,7 +75,7 @@ else:
     logging.error("Pleae use either --dmas or --covis-nas")
 
 
-client = MongoClient()
+client = MongoClient( args.dbhost )
 db = client.covis
 runs = db.runs
 

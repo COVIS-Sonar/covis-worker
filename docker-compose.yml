@@ -1,20 +1,12 @@
+## This compose is _only used for local testing_
+# Data is not persisted
+#
 version: '2'
 
-networks:
-  covis:
-    driver: bridge
-
 services:
-  rabbitmq:
-    image: 'bitnami/rabbitmq:latest'
-    networks:
-      - covis
-
-  worker:
-    build: .
-    depends_on:
-      - rabbitmq
-    networks:
-      - covis
-    links:
-      - rabbitmq
+  mongodb:
+    image: 'bitnami/mongodb:3.6'
+    labels:
+      kompose.service.type: nodeport
+    ports:
+      - "27017:27017"
