@@ -5,6 +5,7 @@ import logging
 import pathlib
 import gzip
 import shutil
+import os
 from subprocess import Popen,PIPE
 
 from pymongo import MongoClient
@@ -37,14 +38,10 @@ if not db:
 for basename in args.infile:
     print(basename)
 
-    results = db.find(basename=basename)
-    result = results[0]
+    result = db.find(basename=basename)
 
-    if len(results) == 0:
+    if not result:
         print("Unable to find basename %s" % basename)
-        continue
-    elif len(results) > 1:
-        print("Found multiple instances of %s, skipping..." % basename)
         continue
 
     # Set output filename
@@ -59,6 +56,11 @@ for basename in args.infile:
 
     print(f.info())
 
+    # Remove existing files
+    if os.path.isfile(outfile):
+        print("Removing existing file")
+        os.remove(outfile)
+
     command = ["7z", "a", "-si", "-y", outfile]
     with Popen(command, stdin=PIPE) as process:
         with gzip.GzipFile(fileobj=f) as data:
@@ -68,3 +70,12 @@ for basename in args.infile:
     #     with open(outfile, 'wb') as out:
     #         for d in gz.read(256*1024):
     #             out.write(d)
+
+    # Check the results
+    command = ["7z","t",outfile]
+    child = Popen(command)
+    child.wait()
+
+    if child.returncode != 0:
+        print("File does not check out...")
+        continue

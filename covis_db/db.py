@@ -4,6 +4,9 @@ import re
 
 from . import remote
 
+# Thin wrapper around MongoDB client accessor
+#
+#
 class CovisDB:
 
     def __init__(self, db_client = None):
@@ -46,4 +49,19 @@ class CovisRun:
 
     @property
     def raw(self):
-        return remote.CovisRaw(self, self.json["raw"])
+        return CovisRaw(self.json["raw"])
+
+
+class CovisRaw:
+
+    def __init__(self,raw):
+        self.raw = raw
+
+    # def at(self,site):
+    #     re = site_to_re(site)
+    #
+    #     for r in self.raw:
+    #         if re.match(r["host"]):
+    #             return True
+    #
+    #     return False
