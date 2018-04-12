@@ -86,8 +86,8 @@ class MinioAccessor:
     def __init__(self,host,port,
                 bucket=None,
                 path=None):
-        self.host = host
-        self.post = port
+        self._host = host
+        self._port = int(port)
 
         self.access_key='covis'
         self.secret_key="coviscovis"
@@ -97,14 +97,14 @@ class MinioAccessor:
 
     @property
     def host(self):
-        return self.host
+        return self._host
 
     @property
     def port(self):
-        return self.port
+        return self._port
 
     def reader(self):
-        full_hostname = "%s:%d" % (self.host, self.port)
+        full_hostname = "%s:%d" % (self.host, self.port())
         print("Accessing minio host: %s" % full_hostname)
 
         client = Minio(full_hostname,
@@ -116,24 +116,23 @@ class MinioAccessor:
 
 class OldCovisNasAccessor(MinioAccessor):
 
+    def __init__(self,raw):
+        p = pathlib.Path(raw.filename)
+        path = "/".join(p.parts[3:])
 
-    def hostname(self,site):
+        self.site = raw.host
+
+        super().__init__(self.hostname(), self.port(),
+                            bucket="raw",
+                            path=path)
+
+    def hostname(self):
         return "10.95.97.79"
 
-    def port(self,site):
-        nas_id = re.search('(\d+)$', site).group(0)
+    def port(self):
+        nas_id = re.search('(\d+)$', self.site).group(0)
 
         if not nas_id.isdigit():
             raise "Couldn't parse site name \"%s\"" % site
 
         return 9000 + int(nas_id)
-
-    def __init__(self,raw):
-        p = pathlib.Path(raw['filename'])
-        path = "/".join(p.parts[3:])
-
-        site = raw['host']
-
-        super().__init__(self.hostname(site), self.port(site),
-                            bucket="raw",
-                            path=path)

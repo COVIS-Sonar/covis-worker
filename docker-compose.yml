@@ -11,7 +11,7 @@ services:
     ports:
       - "27017:27017"
 
-  minio_nas:
+  minio_old_covis_nas:
     image: 'minio/minio'
     ports:
       - "9001:9000"
@@ -20,4 +20,15 @@ services:
      - MINIO_SECRET_KEY=coviscovis
     command: server /data
     volumes:
-      - ./test_data/covis-nas/:/data
+      - ./test_data/old-covis-nas/:/data
+
+  minio_covis_nas:
+    image: 'minio/minio'
+    ports:
+      - "9000:9000"
+    environment:
+     - MINIO_ACCESS_KEY=covis
+     - MINIO_SECRET_KEY=coviscovis
+    command: server /data
+    volumes:
+      - ./test_data/new-covis-nas/:/data

@@ -27,6 +27,6 @@ def test_covis_run():
     assert result
 
     assert result.mode == "DIFFUSE"
-    # 
+
     # assert result.raw.at("old-covis-nas") == False
     # assert result.raw.at("dmas") == True

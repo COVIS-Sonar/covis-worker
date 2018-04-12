@@ -16,9 +16,9 @@ def test_covis_raw(monkeypatch):
 
     #assert result.raw.at("old-covis-nas") == True
 
-    # f = result.raw.stream()
-    #
-    # assert f
-    #
-    # # We expect this to be a urllib3.response.HTTPResponse
-    # assert int(f.info()["Content-Length"]) == 2928961
+    f = result.raw[0].reader()
+
+    assert f
+
+    # We expect f to be a urllib3.response.HTTPResponse
+    assert int(f.info()["Content-Length"]) == 2928961

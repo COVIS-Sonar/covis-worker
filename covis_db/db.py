@@ -49,13 +49,39 @@ class CovisRun:
 
     @property
     def raw(self):
-        return CovisRaw(self.json["raw"])
+        return [CovisRaw(p) for p in self.json["raw"]]
 
+
+re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
+#re_covis_nas     = re.compile( r"covis-nas\Z", re.IGNORECASE)
+#re_dmas          = re.compile( r"dmas", re.IGNORECASE)
 
 class CovisRaw:
 
     def __init__(self,raw):
         self.raw = raw
+
+    @property
+    def host(self):
+        return self.raw['host'].upper()
+
+    @property
+    def filename(self):
+        return self.raw['filename']
+
+    def accessor(self):
+        if re_old_covis_nas.match(self.host):
+            return remote.OldCovisNasAccessor(self)
+        elif self.host == "COVIS-NAS":
+            return None
+        elif self.host == "DMAS":
+            return None
+
+    def reader(self):
+        return self.accessor().reader()
+
+
+
 
     # def at(self,site):
     #     re = site_to_re(site)
