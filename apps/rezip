@@ -48,13 +48,19 @@ for basename in args.infile:
 
     outfile = pathlib.Path(args.outdir, basename+".tar.7z")
 
-    f = result.raw.stream()
+    raw = result.raw[0]
+    print(raw)
 
-    if not f:
+    accessor = raw.accessor()
+    accessor.hostname="localhost"
+
+
+    if not accessor:
         print("Unable to get file %s" % basename)
         continue
 
-    print(f.info())
+    r = accessor.reader()
+    print(r.info())
 
     # Remove existing files
     if os.path.isfile(outfile):
@@ -63,7 +69,7 @@ for basename in args.infile:
 
     command = ["7z", "a", "-si", "-y", outfile]
     with Popen(command, stdin=PIPE) as process:
-        with gzip.GzipFile(fileobj=f) as data:
+        with gzip.GzipFile(fileobj=r) as data:
             shutil.copyfileobj(data, process.stdin)
 
     # with gzip.GzipFile(fileobj=f) as gz:

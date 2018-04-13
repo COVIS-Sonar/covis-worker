@@ -95,39 +95,39 @@ class MinioAccessor:
         self.bucket = bucket
         self.path = path
 
-    @property
     def host(self):
         return self._host
 
-    @property
     def port(self):
         return self._port
 
-    def reader(self):
-        full_hostname = "%s:%d" % (self.host, self.port())
-        print("Accessing minio host: %s" % full_hostname)
+    def full_hostname(self):
+        return "%s:%d" % (self.host(), self.port())
 
-        client = Minio(full_hostname,
+    def minio_client(self):
+        print("Accessing minio host: %s" % self.full_hostname())
+        return Minio(self.full_hostname(),
                   access_key=self.access_key,
                   secret_key=self.secret_key,
                   secure=False)
 
-        return client.get_object(self.bucket, self.path)
+
+    def reader(self):
+        print("Getting object at %s / %s" % (self.bucket, self.path))
+        return self.minio_client().get_object(self.bucket, self.path)
+
+    def writer(self):
+        return self.minio_client().put_object(self.bucket, self.path)
+
 
 class OldCovisNasAccessor(MinioAccessor):
 
     def __init__(self,raw):
-        p = pathlib.Path(raw.filename)
-        path = "/".join(p.parts[3:])
-
         self.site = raw.host
 
-        super().__init__(self.hostname(), self.port(),
+        super().__init__("10.95.97.79", self.port(),
                             bucket="raw",
-                            path=path)
-
-    def hostname(self):
-        return "10.95.97.79"
+                            path=raw.filename)
 
     def port(self):
         nas_id = re.search('(\d+)$', self.site).group(0)
@@ -136,3 +136,23 @@ class OldCovisNasAccessor(MinioAccessor):
             raise "Couldn't parse site name \"%s\"" % site
 
         return 9000 + int(nas_id)
+
+    def writer(self):
+        raise "Can't write to the old covis NAS"
+
+class CovisNasAccessor(MinioAccessor):
+
+    def __init__(self,raw):
+        self.site = raw.host
+        self._hostname = "192.168.14.6"
+
+        super().__init__(self.hostname(), self.port(),
+                            bucket="raw",
+                            path=raw.filename)
+
+    @property
+    def hostname(self):
+        return self._hostname
+
+    def port(self):
+        return 9000
