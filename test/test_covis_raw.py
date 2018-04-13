@@ -25,7 +25,7 @@ def test_covis_raw(monkeypatch):
 
 
 
-def test_covis_copy(monkeypatch):
+def test_covis_copy_minio_to_minio(monkeypatch):
 
     monkeypatch.setattr('covis_db.remote.OldCovisNasAccessor.host', lambda x: "localhost")
     monkeypatch.setattr('covis_db.remote.CovisNasAccessor.host', lambda x: "localhost")
@@ -36,6 +36,6 @@ def test_covis_copy(monkeypatch):
 
     assert result.mode == "DIFFUSE"
 
-    # with result.raw[0].reader() as src:
-    #     with remote.CovisNasAccessor(result.raw[0]).writer() as dst:
-    #         shutil.copyfileobj(src,dst)
+    with result.raw[0].reader() as src:
+        with remote.CovisNasAccessor(result.raw[0]).writer() as dst:
+            shutil.copyfileobj(src,dst)
