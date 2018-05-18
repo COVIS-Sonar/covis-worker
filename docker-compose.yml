@@ -20,7 +20,7 @@ services:
      - MINIO_SECRET_KEY=coviscovis
     command: server /data
     volumes:
-      - ./test_data/old-covis-nas/:/data
+      - ./test/data/old-covis-nas/:/data
 
   minio_covis_nas:
     image: 'minio/minio'
@@ -31,4 +31,4 @@ services:
      - MINIO_SECRET_KEY=coviscovis
     command: server /data
     volumes:
-      - ./test_data/new-covis-nas/:/data
+      - ./test/data/new-covis-nas/:/data

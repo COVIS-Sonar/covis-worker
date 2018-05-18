@@ -4,12 +4,13 @@ import re
 
 from . import remote
 
+
 # Thin wrapper around MongoDB client accessor
 #
 #
 class CovisDB:
 
-    def __init__(self, db_client = None):
+    def __init__(self, db_client=None):
 
         if db_client:
             self.client = db_client
@@ -19,7 +20,7 @@ class CovisDB:
         self.db = self.client.covis
         self.runs = self.db.runs
 
-    def find( self, basename=None ):
+    def find(self, basename=None):
         if basename:
             return self.find_by_basename(basename)
 
@@ -33,6 +34,7 @@ class CovisDB:
             return CovisRun(r)
         else:
             return None
+
 
 class CovisRun:
 
@@ -56,9 +58,10 @@ re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
 #re_covis_nas     = re.compile( r"covis-nas\Z", re.IGNORECASE)
 #re_dmas          = re.compile( r"dmas", re.IGNORECASE)
 
+
 class CovisRaw:
 
-    def __init__(self,raw):
+    def __init__(self, raw):
         self.raw = raw
 
     @property

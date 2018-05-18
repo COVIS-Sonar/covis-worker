@@ -4,11 +4,12 @@ DMAS_TOKEN=a06ed13f-8aab-4cca-9dd5-b329dde1010d
 
 
 import_test:
-	apps/import_file_list.py --dmas --log INFO  test_data/covis_dmas.json
-	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test_data/old_covis_nas1.txt
-	apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test_data/old_covis_nas6.txt
+	apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
+	apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
 
 ## Assumes a mongoDB is running on localhost and make import_test has been run
+## Check that test/data/{new,old}-covis-nas exist
 test:
 	python -m pytest test/
 
@@ -43,7 +44,6 @@ import_all: import_dmas import_covis_nas
 
 dump:
 	apps/dump_mongo.py > dump.json
-
 
 backup:
 	mongodump -o mongodb.backup --gzip

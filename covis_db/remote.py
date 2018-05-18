@@ -8,9 +8,9 @@ from minio import Minio
 from minio.error import ResponseError
 
 
-re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
-re_covis_nas     = re.compile( r"covis-nas\Z", re.IGNORECASE)
-re_dmas          = re.compile( r"dmas", re.IGNORECASE)
+# re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
+# re_covis_nas     = re.compile( r"covis-nas\Z", re.IGNORECASE)
+# re_dmas          = re.compile( r"dmas", re.IGNORECASE)
 
 
 # def site_to_re(site):
@@ -111,23 +111,22 @@ class MinioAccessor:
                   secret_key=self.secret_key,
                   secure=False)
 
-
     def reader(self):
         print("Getting object at %s / %s" % (self.bucket, self.path))
         return self.minio_client().get_object(self.bucket, self.path)
 
-    def write(self,io,length):
+    def write(self, io, length):
         print("Writing object to %s / %s" % (self.bucket, self.path))
         return self.minio_client().put_object(self.bucket, self.path, io, length)
 
 
 class OldCovisNasAccessor(MinioAccessor):
 
-    def __init__(self,raw):
+    def __init__(self, raw):
         self.site = raw.host
 
-        super().__init__( bucket="raw",
-                            path=raw.filename)
+        super().__init__(bucket="raw",
+                         path=raw.filename)
 
     def host(self):
         return "10.95.97.79"
@@ -145,11 +144,11 @@ class OldCovisNasAccessor(MinioAccessor):
 
 class CovisNasAccessor(MinioAccessor):
 
-    def __init__(self,raw):
+    def __init__(self, raw):
         self.site = raw.host
 
         super().__init__(bucket="raw",
-                            path=raw.filename)
+                         path=raw.filename)
 
     def host(self):
         return "192.168.12.6"

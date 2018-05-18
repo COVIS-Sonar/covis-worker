@@ -8,6 +8,6 @@ setup(name='covis_db',
       author='Aaron Marburg',
       author_email='amarburg@apl.washington.edu',
       url='',
-      packages=['covis_db'],
+      packages=['covis_db','covis_worker'],
       install_requires=['minio','pymongo','libarchive']
      )
