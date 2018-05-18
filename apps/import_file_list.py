@@ -61,7 +61,7 @@ elif args.covis_nas:
         if( len(row) != 3 ):
             continue
 
-        filename = re.sub("^\.", "", row[2])
+        filename = re.sub("^\.\/", "", row[2])
 
         ## Need to extract basename
         basename = re.sub( "\.[\.\w]*\Z", "", os.path.basename(filename) )

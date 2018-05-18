@@ -83,11 +83,11 @@ re_dmas          = re.compile( r"dmas", re.IGNORECASE)
 
 class MinioAccessor:
 
-    def __init__(self,host,port,
+    def __init__(self,
                 bucket=None,
                 path=None):
-        self._host = host
-        self._port = int(port)
+        # self._host = host
+        # self._port = int(port)
 
         self.access_key='covis'
         self.secret_key="coviscovis"
@@ -95,11 +95,11 @@ class MinioAccessor:
         self.bucket = bucket
         self.path = path
 
-    def host(self):
-        return self._host
-
-    def port(self):
-        return self._port
+    # def host(self):
+    #     return self._host
+    #
+    # def port(self):
+    #     return self._port
 
     def full_hostname(self):
         return "%s:%d" % (self.host(), self.port())
@@ -116,8 +116,9 @@ class MinioAccessor:
         print("Getting object at %s / %s" % (self.bucket, self.path))
         return self.minio_client().get_object(self.bucket, self.path)
 
-    def writer(self):
-        return self.minio_client().put_object(self.bucket, self.path)
+    def write(self,io,length):
+        print("Writing object to %s / %s" % (self.bucket, self.path))
+        return self.minio_client().put_object(self.bucket, self.path, io, length)
 
 
 class OldCovisNasAccessor(MinioAccessor):
@@ -125,9 +126,11 @@ class OldCovisNasAccessor(MinioAccessor):
     def __init__(self,raw):
         self.site = raw.host
 
-        super().__init__("10.95.97.79", self.port(),
-                            bucket="raw",
+        super().__init__( bucket="raw",
                             path=raw.filename)
+
+    def host(self):
+        return "10.95.97.79"
 
     def port(self):
         nas_id = re.search('(\d+)$', self.site).group(0)
@@ -137,22 +140,19 @@ class OldCovisNasAccessor(MinioAccessor):
 
         return 9000 + int(nas_id)
 
-    def writer(self):
+    def write(self, io):
         raise "Can't write to the old covis NAS"
 
 class CovisNasAccessor(MinioAccessor):
 
     def __init__(self,raw):
         self.site = raw.host
-        self._hostname = "192.168.14.6"
 
-        super().__init__(self.hostname(), self.port(),
-                            bucket="raw",
+        super().__init__(bucket="raw",
                             path=raw.filename)
 
-    @property
-    def hostname(self):
-        return self._hostname
+    def host(self):
+        return "192.168.12.6"
 
     def port(self):
         return 9000
