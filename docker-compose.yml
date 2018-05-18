@@ -1,20 +1,34 @@
-version: '2'
-
-networks:
-  covis:
-    driver: bridge
+## This compose is _only used for local testing_
+# Data is not persisted
+#
+version: '3'
 
 services:
-  rabbitmq:
-    image: 'bitnami/rabbitmq:latest'
-    networks:
-      - covis
+  mongodb:
+    image: 'bitnami/mongodb:3.6'
+    labels:
+      kompose.service.type: nodeport
+    ports:
+      - "27017:27017"
 
-  worker:
-    build: .
-    depends_on:
-      - rabbitmq
-    networks:
-      - covis
-    links:
-      - rabbitmq
+  minio_old_covis_nas:
+    image: 'minio/minio'
+    ports:
+      - "9001:9000"
+    environment:
+     - MINIO_ACCESS_KEY=covis
+     - MINIO_SECRET_KEY=coviscovis
+    command: server /data
+    volumes:
+      - ./test_data/old-covis-nas/:/data
+
+  minio_covis_nas:
+    image: 'minio/minio'
+    ports:
+      - "9000:9000"
+    environment:
+     - MINIO_ACCESS_KEY=covis
+     - MINIO_SECRET_KEY=coviscovis
+    command: server /data
+    volumes:
+      - ./test_data/new-covis-nas/:/data

@@ -1,3 +1,6 @@
 
 ## Retrieve list of all COVIS data products (includes .tar, .png, .mat) from DMAS
-curl "http://dmas.uvic.ca/api/archivefiles?method=getList&token=a06ed13f-8aab-4cca-9dd5-b329dde1010d&station=KEMF&deviceCategory=COVIS" > covis_all.json
+
+Replace MY_TOKEN with your API token.
+
+    curl "http://dmas.uvic.ca/api/archivefiles?method=getList&token=MY_TOKENd&station=KEMF&deviceCategory=COVIS" > covis_all.json

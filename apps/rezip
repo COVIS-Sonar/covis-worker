@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+
+import argparse
+import logging
+import pathlib
+import gzip
+import shutil
+import os
+from subprocess import Popen,PIPE
+
+from pymongo import MongoClient
+from covis_db.db import CovisDB
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('infile', nargs='*',
+                    help="Basenames to process")
+
+parser.add_argument('--log', nargs='?', default='WARNING',
+                    help='Logging level')
+
+parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
+
+parser.add_argument('--outdir',
+                    default='.', help="Output directory")
+
+args = parser.parse_args()
+
+logging.basicConfig(level=args.log.upper())
+
+
+db = CovisDB(MongoClient(args.dbhost))
+if not db:
+    print("Unable to contact Mongodb at %s" % args.dbhost)
+    exit(-1)
+
+
+for basename in args.infile:
+    print(basename)
+
+    result = db.find(basename=basename)
+
+    if not result:
+        print("Unable to find basename %s" % basename)
+        continue
+
+    # Set output filename
+
+    outfile = pathlib.Path(args.outdir, basename+".tar.7z")
+
+    raw = result.raw[0]
+    print(raw)
+
+    accessor = raw.accessor()
+    accessor.hostname="localhost"
+
+
+    if not accessor:
+        print("Unable to get file %s" % basename)
+        continue
+
+    r = accessor.reader()
+    print(r.info())
+
+    # Remove existing files
+    if os.path.isfile(outfile):
+        print("Removing existing file")
+        os.remove(outfile)
+
+    command = ["7z", "a", "-si", "-y", outfile]
+    with Popen(command, stdin=PIPE) as process:
+        with gzip.GzipFile(fileobj=r) as data:
+            shutil.copyfileobj(data, process.stdin)
+
+    # with gzip.GzipFile(fileobj=f) as gz:
+    #     with open(outfile, 'wb') as out:
+    #         for d in gz.read(256*1024):
+    #             out.write(d)
+
+    # Check the results
+    command = ["7z","t",outfile]
+    child = Popen(command)
+    child.wait()
+
+    if child.returncode != 0:
+        print("File does not check out...")
+        continue

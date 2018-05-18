@@ -24,6 +24,8 @@ parser.add_argument('infile', nargs=1,
 parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
                     help='Logging level')
 
+parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
+
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--dmas', dest="dmas", action='store_true')
 group.add_argument('--covis-nas', nargs=1 )
@@ -59,7 +61,7 @@ elif args.covis_nas:
         if( len(row) != 3 ):
             continue
 
-        filename = re.sub("^\.", "/Data/raw", row[2])
+        filename = re.sub("^\.\/", "", row[2])
 
         ## Need to extract basename
         basename = re.sub( "\.[\.\w]*\Z", "", os.path.basename(filename) )
@@ -73,11 +75,11 @@ else:
     logging.error("Pleae use either --dmas or --covis-nas")
 
 
-client = MongoClient()
+client = MongoClient( args.dbhost )
 db = client.covis
 runs = db.runs
 
-runs.create_index( "basename", unique=True )
+runs.create_index( "basename", unique=True)
 
 ## Take the input file and create a dict of { basename : {file_entry}}
 
