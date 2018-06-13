@@ -1,23 +1,33 @@
 pipeline:
   test:
-    image:  amarburg/covis-postprocess:${DRONE_REPO_OWNER}-latest
+    image:  amarburg/covis-worker:latest
     commands:
-      - ls -al
+      - ./wait-for-it.sh -h old_covis_nas -p 9000
+      - ./wait-for-it.sh -h new_covis_nas -p 9000
+      - ./wait-for-it.sh -h mongodb -p 27017
+      - make test
 
-  ## Build a test docker image
-  build_docker:
-    image: docker:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    commands:
-      - docker build -t amarburg/covis-worker:latest -t amarburg/covis-worker:${DRONE_REPO_OWNER}-latest -t amarburg/covis-worker:${DRONE_REPO_OWNER}-${DRONE_COMMIT_SHA} .
+  # slack:
+  #   image: plugins/slack
+  #   secrets: [ slack_webhook ]
+  #   when:
+  #     status:
+  #       - success
+  #       - failure
 
-  ## Test here...
 
-  slack:
-    image: plugins/slack
-    secrets: [ slack_webhook ]
-    when:
-      status:
-        - success
-        - failure
+services:
+  mongodb:
+    image: 'bitnami/mongodb:3.6'
+
+  old_covis_nas:
+    image: 'covis-worker/minio_old_nas'
+    environment:
+      - MINIO_ACCESS_KEY=covis
+      - MINIO_SECRET_KEY=coviscovis
+
+  new_covis_nas:
+    image: 'covis-worker/minio_new_nas'
+    environment:
+      - MINIO_ACCESS_KEY=covis
+      - MINIO_SECRET_KEY=coviscovis

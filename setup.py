@@ -2,7 +2,7 @@
 
 from distutils.core import setup
 
-setup(name='covis_db',
+setup(name='covis_worker',
       version='0.1',
       description='',
       author='Aaron Marburg',

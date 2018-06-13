@@ -2,16 +2,29 @@
 DMAS_TOKEN=a06ed13f-8aab-4cca-9dd5-b329dde1010d
 
 
+## Assumes the local
+## Check that test/data/{new,old}-covis-nas exist
+test:
+	python3 -m pytest test/
 
-import_test:
+TEST_DATA_DAT_URL=dat://8dc8f4eb4b51d286f3ed4d825016a27ca5888e24cb4fffca019c740acf01c2e4
+
+
+# Build local image
+build:
+	docker build -t amarburg/covis-worker:latest .
+
+## The services in docker_compose.yml must exist for testing
+test/data/dat.json: get_test_data
+
+get_test_data:
+	mkdir -p test/data/
+	cd test/ && dat clone $TEST_DATA_DAT_URL data/
+
+import_test: test/data/covis_dmas.json
 	apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
 	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
 	apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
-
-## Assumes a mongoDB is running on localhost and make import_test has been run
-## Check that test/data/{new,old}-covis-nas exist
-test:
-	python -m pytest test/
 
 
 worker:
@@ -19,6 +32,8 @@ worker:
 
 
 
+#  Retrieve list of 2010-2015 COVIS files currently on ONC DMAS
+#  Saves results to seed_data/
 scrape_dmas:
 	curl -o seed_data/covis_dmas_2010_2012.json \
 					"http://dmas.uvic.ca/api/archivefiles?method=getList&token=$(DMAS_TOKEN)&station=KEMF&deviceCategory=COVIS&dateFrom=2010-01-01T00:00:00.000Z&dateTo=2013-01-01T00:00:00.000Z"
@@ -29,6 +44,11 @@ scrape_dmas:
 	curl -o seed_data/covis_dmas_2015.json \
 					"http://dmas.uvic.ca/api/archivefiles?method=getList&token=$(DMAS_TOKEN)&station=KEMF&deviceCategory=COVIS&dateFrom=2015-01-01T00:00:00.000Z&dateTo=2018-01-01T00:00:00.000Z"
 
+
+
+
+
+#  Import DMAS and local NAS seed_data to a MongoDB instance
 import_dmas:
 	apps/import_file_list.py --dmas --log INFO  seed_data/covis_dmas_2010_2012.json
 	apps/import_file_list.py --dmas --log INFO  seed_data/covis_dmas_2013.json
@@ -44,6 +64,7 @@ import_all: import_dmas import_covis_nas
 
 
 
+# Dump mongodb to JSON
 dump:
 	apps/dump_mongo.py > dump.json
 
@@ -54,4 +75,4 @@ restore:
 	mongorestore mongodb.backup
 
 .PHONY:  backup restore dump import_all import_covis_nas import_dmas \
-				import_test test
+				import_test test get_test_data
