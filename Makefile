@@ -14,6 +14,8 @@ test:
 	python -m pytest test/
 
 
+worker:
+	celery -A covis_worker worker -l info --config=c
 
 
 

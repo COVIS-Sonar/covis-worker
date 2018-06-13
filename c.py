@@ -1,0 +1,1 @@
+CELERYD_LOG_COLOR = False
