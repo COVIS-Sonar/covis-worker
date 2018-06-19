@@ -8,12 +8,12 @@ from datetime import datetime
 
 from decouple import config
 
-import pymongo
 from pymongo import MongoClient
 import os.path
 
 import csv
 
+from covis_db import db
 
 from itertools import islice
 
@@ -23,10 +23,12 @@ parser.add_argument('infile', nargs=1,
                     help="JSON file to be processed",
                     type=argparse.FileType('r'))
 
-parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
+parser.add_argument('--log', metavar='log', nargs='?',
+                    default=config('LOG_LEVEL', default='INFO'),
                     help='Logging level')
 
-parser.add_argument('--dbhost', default=config('MONGODB_URL', default="mongodb://localhost/"), help='Hostname of MongoDB host')
+parser.add_argument('--dbhost', default=config('MONGODB_URL', default="mongodb://localhost/"),
+                    help='URL (mongodb://hostname/) of MongoDB host')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--dmas', dest="dmas", action='store_true')
@@ -76,13 +78,8 @@ else:
 
     logging.error("Pleae use either --dmas or --covis-nas")
 
-
-logging.info("Connecting to Mongo host: %s" % args.dbhost )
-client = MongoClient( args.dbhost )
-db = client.covis
-runs = db.runs
-
-runs.create_index( "basename", unique=True)
+client = db.CovisDB( MongoClient(args.dbhost ) )
+client.runs.create_index( "basename", unique=True)
 
 ## Take the input file and create a dict of { basename : {file_entry}}
 
@@ -109,16 +106,16 @@ for entry in files:
                      'raw': [file_entry]}
         new_entry.update(entry)
 
-        runs.insert_one( new_entry )
+        client.runs.insert_one( new_entry )
         logging.info("Adding entry to db for %s" % basename)
 
     except pymongo.errors.DuplicateKeyError as err:
         logging.info("Updating existing entry for %s" % basename)
 
-        res = runs.update_one(
+        res = client.runs.update_one(
             {'basename': basename},
             { '$set': entry,
               '$pull': { "raw": { "host": file_entry['host'] } } } )
-        runs.update_one(
+        client.runs.update_one(
             {'basename': basename},
             { '$push': { "raw": file_entry } } )
