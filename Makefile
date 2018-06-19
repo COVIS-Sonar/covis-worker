@@ -19,7 +19,7 @@ test/data/dat.json: get_test_data
 
 get_test_data:
 	mkdir -p test/data/
-	cd test/ && dat clone $TEST_DATA_DAT_URL data/
+	cd test/ && dat clone ${TEST_DATA_DAT_URL} data/
 
 import_test: test/data/covis_dmas.json
 	apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
