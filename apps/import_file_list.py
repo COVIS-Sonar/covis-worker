@@ -6,6 +6,8 @@ import re
 import logging
 from datetime import datetime
 
+from decouple import config
+
 import pymongo
 from pymongo import MongoClient
 import os.path
@@ -24,7 +26,7 @@ parser.add_argument('infile', nargs=1,
 parser.add_argument('--log', metavar='log', nargs='?', default='WARNING',
                     help='Logging level')
 
-parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
+parser.add_argument('--dbhost', default=config('MONGODB_URL', default="mongodb://localhost/"), help='Hostname of MongoDB host')
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--dmas', dest="dmas", action='store_true')
@@ -75,6 +77,7 @@ else:
     logging.error("Pleae use either --dmas or --covis-nas")
 
 
+logging.info("Connecting to Mongo host: %s" % args.dbhost )
 client = MongoClient( args.dbhost )
 db = client.covis
 runs = db.runs

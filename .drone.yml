@@ -1,11 +1,18 @@
 pipeline:
   test:
-    image:  amarburg/covis-worker:latest
+    image:  amarburg/covis-worker:test
+    environment:
+      - MONGODB_URL=mongodb://mongodb/
     commands:
       - ./wait-for-it.sh -h old_covis_nas -p 9000
       - ./wait-for-it.sh -h new_covis_nas -p 9000
       - ./wait-for-it.sh -h mongodb -p 27017
+      - cat .env
+      - ls -al
+      - pwd
+      - make import_test
       - make test
+
 
   # slack:
   #   image: plugins/slack
