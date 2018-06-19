@@ -4,8 +4,89 @@ import os
 import re
 import pathlib
 
+from decouple import config
+
+
 from minio import Minio
-from minio.error import ResponseError
+from minio.error import ResponseError, NoSuchKey
+
+
+class MinioAccessor:
+
+    def __init__(self,
+                bucket=None,
+                path=None,
+                config_base=""):
+
+        self.access_key=config("%s_ACCESS_KEY"  % config_base )
+        self.secret_key=config("%s_SECRET_KEY"  % config_base )
+        self.url = config("%s_URL" % config_base )
+
+        self.bucket = bucket
+        self.path = path
+
+    # def host(self):
+    #     return self._host
+    #
+    # def port(self):
+    #     return self._port
+
+
+    def minio_client(self):
+        print("Accessing minio host: %s" % self.url)
+        print(" %s : %s" % (self.access_key, self.secret_key))
+        return Minio(self.url,
+                  access_key=self.access_key,
+                  secret_key=self.secret_key,
+                  secure=False)
+
+    def reader(self):
+        print("Getting object at %s / %s" % (self.bucket, self.path))
+        return self.minio_client().get_object(self.bucket, self.path)
+
+    def write(self, io, length):
+        print("Writing object to %s / %s" % (self.bucket, self.path))
+        return self.minio_client().put_object(self.bucket, self.path, io, length)
+
+    def stats(self):
+        return self.minio_client().stat_object(self.bucket, self.path)
+
+    def exists(self):
+        try:
+            stats = self.stats()
+            return True
+        except NoSuchKey:
+            return False
+
+re_old_covis_nas = re.compile( r"old-covis-nas(\d+)", re.IGNORECASE)
+
+class OldCovisNasAccessor(MinioAccessor):
+
+    def __init__(self, raw):
+
+        # Identify which old nas
+        m = re_old_covis_nas.search(raw.host)
+        self.num = int(m.group(1))
+
+        ## Error checking here
+
+        print("Accessing old covis nas %d" % self.num)
+
+        super().__init__(bucket="raw",
+                         path=raw.filename,
+                         config_base="OLD_NAS%d" % self.num)
+
+    def write(self, io):
+        raise "Can't write to the old covis NAS"
+
+class CovisNasAccessor(MinioAccessor):
+
+    def __init__(self, raw):
+
+        super().__init__(bucket="raw",
+                         path=raw.filename,
+                         config_base="NAS")
+
 
 
 # re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
@@ -79,79 +160,3 @@ from minio.error import ResponseError
 #
 #     def dmas_stream(self,raw):
 #         return None
-
-
-class MinioAccessor:
-
-    def __init__(self,
-                bucket=None,
-                path=None):
-        # self._host = host
-        # self._port = int(port)
-
-        self.access_key='covis'
-        self.secret_key="coviscovis"
-
-        self.bucket = bucket
-        self.path = path
-
-    # def host(self):
-    #     return self._host
-    #
-    # def port(self):
-    #     return self._port
-
-    def full_hostname(self):
-        return "%s:%d" % (self.host(), self.port())
-
-    def minio_client(self):
-        print("Accessing minio host: %s" % self.full_hostname())
-        return Minio(self.full_hostname(),
-                  access_key=self.access_key,
-                  secret_key=self.secret_key,
-                  secure=False)
-
-    def reader(self):
-        print("Getting object at %s / %s" % (self.bucket, self.path))
-        return self.minio_client().get_object(self.bucket, self.path)
-
-    def write(self, io, length):
-        print("Writing object to %s / %s" % (self.bucket, self.path))
-        return self.minio_client().put_object(self.bucket, self.path, io, length)
-
-
-class OldCovisNasAccessor(MinioAccessor):
-
-    def __init__(self, raw):
-        self.site = raw.host
-
-        super().__init__(bucket="raw",
-                         path=raw.filename)
-
-    def host(self):
-        return "10.95.97.79"
-
-    def port(self):
-        nas_id = re.search('(\d+)$', self.site).group(0)
-
-        if not nas_id.isdigit():
-            raise "Couldn't parse site name \"%s\"" % site
-
-        return 9000 + int(nas_id)
-
-    def write(self, io):
-        raise "Can't write to the old covis NAS"
-
-class CovisNasAccessor(MinioAccessor):
-
-    def __init__(self, raw):
-        self.site = raw.host
-
-        super().__init__(bucket="raw",
-                         path=raw.filename)
-
-    def host(self):
-        return "192.168.12.6"
-
-    def port(self):
-        return 9000

@@ -20,7 +20,7 @@ services:
       - '25672:25672'
       - '15672:15672'
 
-  minio_old_covis_nas:
+  minio_old_covis_nas1:
     image: 'amarburg/covis_test_minio_old_nas'
     ports:
       - "9001:9000"

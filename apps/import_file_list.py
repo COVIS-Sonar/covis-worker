@@ -97,7 +97,7 @@ for entry in files:
 
     entry = { 'datetime': date,
             'mode': mode,
-            'site': 'ONC' }
+            'site': 'Endeavour' }
 
 
     try:
