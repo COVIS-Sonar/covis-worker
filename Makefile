@@ -13,6 +13,10 @@ TEST_DATA_DAT_URL=dat://8dc8f4eb4b51d286f3ed4d825016a27ca5888e24cb4fffca019c740a
 # Build local image
 build:
 	docker build -t amarburg/covis-worker:latest .
+	docker build -t amarburg/covis-worker:test -f docker_test_images/test_image/Dockerfile .
+
+drone: build
+	drone exec
 
 ## The services in docker_compose.yml must exist for testing
 test/data/dat.json: get_test_data
@@ -75,4 +79,4 @@ restore:
 	mongorestore mongodb.backup
 
 .PHONY:  backup restore dump import_all import_covis_nas import_dmas \
-				import_test test get_test_data
+				import_test test get_test_data build drone

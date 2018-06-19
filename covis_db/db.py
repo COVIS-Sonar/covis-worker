@@ -2,11 +2,12 @@
 from pymongo import MongoClient
 import re
 
+from decouple import config
+
 from . import remote
 
 
 # Thin wrapper around MongoDB client accessor
-#
 #
 class CovisDB:
 
@@ -15,7 +16,9 @@ class CovisDB:
         if db_client:
             self.client = db_client
         else:
-            self.client = MongoClient()
+            mongo_url = config('MONGODB_URL', default="mongodb://localhost/")
+            print("Connecting to %s" % mongo_url)
+            self.client = MongoClient(mongo_url)
 
         self.db = self.client.covis
         self.runs = self.db.runs

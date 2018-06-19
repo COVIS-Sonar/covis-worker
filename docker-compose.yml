@@ -21,15 +21,15 @@ services:
       - '15672:15672'
 
   minio_old_covis_nas:
-    image: 'covis_worker/old_covis_nas'
+    image: 'amarburg/covis_test_minio_old_nas'
     ports:
       - "9001:9000"
     environment:
      - MINIO_ACCESS_KEY=covis
      - MINIO_SECRET_KEY=coviscovis
 
-  minio_covis_nas:
-    image: 'covis_worker/new_covis_nas'
+  minio_new_covis_nas:
+    image: 'amarburg/covis_test_minio_new_nas'
     ports:
       - "9000:9000"
     environment:
