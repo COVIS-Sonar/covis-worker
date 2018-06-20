@@ -97,10 +97,16 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         return False
 
     logging.info("Uploading to destination host %s" % dest_host)
+    raw = CovisRaw(host=dest_host, path=raw.filename)
+    accessor = raw.accessor()
 
-    logging.info("Updating DB")
-    raw = {'host': dest_host, 'path': raw.filename}
-    print(raw)
+    statinfo = os.stat(outfile)
+    with open(outfile, 'rb') as zfile:
+        accessor.write(zfile,statinfo.st_size)
+
+    logging.info("Upload successful, updating DB")
+    if not run.add_raw(raw.host, raw.filename):
+        logging.info("Error inserting into db...")
 
 
 
