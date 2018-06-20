@@ -40,20 +40,14 @@ client = db.CovisDB(MongoClient(args.dbhost))
 # Find run which are _not_ on NAS
 result = client.runs.aggregate( [
     {"$match": { "$and":
-                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } },
-                  { "mode":     {"$eq": "DIFFUSE"}} ]
+                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
+                  #{ "mode":     {"$eq": "DIFFUSE"}} ]
     } }
 ])
 
 i = 0
 for elem in result:
     run = db.CovisRun(elem)
-
-    ## Skip DMAS entries for now
-    raw = hosts.best_raw(run.raw)
-    if hosts.is_dmas(raw.host):
-        print("Skipping entry that's only on DMAS for now...")
-        continue
 
     i = i+1
     if args.count > 0 and i > args.count:

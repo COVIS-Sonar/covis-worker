@@ -26,10 +26,14 @@ get_test_data:
 	cd test/ && dat clone ${TEST_DATA_DAT_URL} data/
 
 import_test: test/data/covis_dmas.json
-	apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
-	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
-	apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
+	#apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
+	#apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
+	#apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
 
+test_db: test/data/covis_dmas.json
+	mongo covis --eval 'db.runs.drop()'
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1_small.txt
+	#apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
 
 worker:
 	celery -A covis_worker worker -l info --config=c

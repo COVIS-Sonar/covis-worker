@@ -70,8 +70,6 @@ class CovisRun:
         if self.find_raw(host,filename):
             return False
 
-        print("Before:", self.json)
-
         entry = {'host': host, 'filename': filename}
 
         if self.collection:
@@ -102,7 +100,7 @@ class CovisRaw:
         if hosts.is_old_nas(self.host):
             return remote.OldCovisNasAccessor(self)
         elif hosts.is_nas(self.host):
-            return None
+            return remote.CovisNasAccessor(self)
         elif hosts.is_dmas(self.host):
             return None
 

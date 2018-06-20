@@ -34,7 +34,6 @@ class MinioAccessor:
 
     def minio_client(self):
         print("Accessing minio host: %s" % self.url)
-        print(" %s : %s" % (self.access_key, self.secret_key))
         return Minio(self.url,
                   access_key=self.access_key,
                   secret_key=self.secret_key,

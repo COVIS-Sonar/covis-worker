@@ -54,7 +54,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         os.remove(outfile)
 
 
-    do_update_contents = False
+    do_update_contents = True
 
     if do_update_contents:
         decompressed_path = "/tmp"
@@ -67,11 +67,13 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
             ## Recompress
             files = [n.name for n in mem]
-            print(files)
-            command = ["7z", "a", "-y", outfile] + files
+            #"-mx=9",
+            command = ["7z", "a",  "-y", outfile] + files
             process = subprocess.run(command,cwd=decompressed_path)
 
-        return True
+            run.collection.find_one_and_update({'basename': run.basename},
+                                                {'$set': {"contents": contents }})
+
     else:
         # If not updating contents, this can be done as a streaming operation
         with tarfile.open(fileobj=r,mode="r:*") as tf:
@@ -96,11 +98,19 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         logging.error("7z test on file %s has non-zero return value" % outfile)
         return False
 
+    logging.info(raw.filename)
+    dest_filename = pathlib.Path(raw.filename).parent / pathlib.Path(outfile).name
+    logging.info("Dest filename: %s" % dest_filename)
+
     logging.info("Uploading to destination host %s" % dest_host)
-    raw = CovisRaw(host=dest_host, path=raw.filename)
+    raw = db.CovisRaw({'host': dest_host, 'filename': str(dest_filename)} )
     accessor = raw.accessor()
 
+    if not accessor:
+        logging.error("Unable to get accessor for %s" % dest_host)
+
     statinfo = os.stat(outfile)
+    print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
     with open(outfile, 'rb') as zfile:
         accessor.write(zfile,statinfo.st_size)
 
