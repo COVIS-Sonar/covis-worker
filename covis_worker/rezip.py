@@ -23,7 +23,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         logging.info("Couldn't find basename in db: %s", basename)
         return False
 
-    raw = hosts.best_raw( run.raw )
+    raw = hosts.best_raw(run.raw)
 
     print("Using source file %s:%s" % (raw.host, raw.filename))
 
@@ -49,10 +49,20 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         logging.warning("Removing existing file")
         os.remove(outfile)
 
-    command = ["7z", "a", "-si", "-y", outfile]
-    with Popen(command, stdin=PIPE) as process:
-        with gzip.GzipFile(fileobj=r) as data:
+
+    do_update_contents = True
+
+    if do_update_contents:
+        decompressed_path = pathlib.Path("/tmp", basename)
+        with open(decompressed_path,'wb') as data:
             shutil.copyfileobj(data, process.stdin)
+
+    else:
+        # If not updating contents, this can be done as a stream operation
+        command = ["7z", "a", "-si", "-y", outfile]
+        with Popen(command, stdin=PIPE) as process:
+            with gzip.GzipFile(fileobj=r) as data:
+                shutil.copyfileobj(data, process.stdin)
 
     # Check the results
     command = ["7z", "t", outfile]
