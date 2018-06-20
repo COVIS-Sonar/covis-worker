@@ -49,4 +49,5 @@ def test_covis_copy_minio_to_minio():
     assert result.mode == "DIFFUSE"
 
     with result.raw[0].reader() as src:
-        remote.CovisNasAccessor(result.raw[0]).write(src, int(src.getheader('Content-Length')))
+        nas = remote.CovisNasAccessor(result.raw[0])
+        nas.write(src, int(src.getheader('Content-Length')))

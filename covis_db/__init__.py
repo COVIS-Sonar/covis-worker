@@ -1,2 +1,2 @@
 
-__all__ = ["db","remote"]
+__all__ = ["db","remote","hosts"]
