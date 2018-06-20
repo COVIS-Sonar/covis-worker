@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-import json
 from pprint import pprint
 import argparse
 import sys
+import json
 
 from pymongo import MongoClient
+from bson import json_util
 from decouple import config
 from covis_db import db
 
@@ -20,7 +21,15 @@ args = parser.parse_args()
 client = db.CovisDB( MongoClient(args.dbhost ) )
 cursor = client.runs.find().sort('datetime')
 
+print("[")
 for elem in cursor:
-    pprint(elem)
+    # print(json.dumps(json.loads(json_util.dumps(elem,indent=2))))
+    print(json_util.dumps(elem,indent=2))
+    if cursor.alive:
+        print(',')
 
-print("%d elements in total" % cursor.count(), file=sys.stderr)
+print("]")
+
+
+
+#print("%d elements in total" % cursor.count(), file=sys.stderr)
