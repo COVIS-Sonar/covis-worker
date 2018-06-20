@@ -5,7 +5,8 @@ import tempfile
 import pathlib
 import logging
 import os
-from subprocess import Popen,PIPE
+
+import subprocess
 import gzip
 import shutil
 import tarfile
@@ -30,7 +31,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
     print("Using source file %s:%s" % (raw.host, raw.filename))
 
-    workdir = tempfile.TemporaryDirectory(dir=tempdir).name
+    workdir = "/tmp"  #tempfile.TemporaryDirectory(dir=tempdir).name
 
 
     # Calculate output filename
@@ -53,31 +54,42 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         os.remove(outfile)
 
 
-    do_update_contents = True
+    do_update_contents = False
 
     if do_update_contents:
         decompressed_path = "/tmp"
 
         with tarfile.open(fileobj=r,mode="r:*") as tf:
             tf.extractall(path=decompressed_path)
-            mem = tf.members
+            mem = tf.getmembers()
 
             contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem]
 
-            print(contents)
+            ## Recompress
+            files = [n.name for n in mem]
+            print(files)
+            command = ["7z", "a", "-y", outfile] + files
+            process = subprocess.run(command,cwd=decompressed_path)
 
         return True
     else:
-        # If not updating contents, this can be done as a stream operation
-        command = ["7z", "a", "-si", "-y", outfile]
-        with Popen(command, stdin=PIPE) as process:
-            with gzip.GzipFile(fileobj=r) as data:
-                shutil.copyfileobj(data, process.stdin)
+        # If not updating contents, this can be done as a streaming operation
+        with tarfile.open(fileobj=r,mode="r:*") as tf:
+            while True:
+                mem = tf.next()
+                if not mem:
+                    break
+
+                command = ["7z", "a", "-si%s" % mem.name, "-y", outfile]
+
+                with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                    with tf.extractfile(mem) as data:
+                        shutil.copyfileobj(data, process.stdin)
 
 
     # Check the results
     command = ["7z", "t", outfile]
-    child = Popen(command)
+    child = subprocess.Popen(command)
     child.wait()
 
     if child.returncode != 0:
