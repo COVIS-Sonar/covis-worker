@@ -26,14 +26,14 @@ class CovisDB:
     def find(self, basename):
         r = self.runs.find_one({'basename': basename})
         if r:
-            return CovisRun(self.runs, r)
+            return CovisRun(r,collection=self.runs)
         else:
             return None
 
 
 class CovisRun:
 
-    def __init__(self, collection, json):
+    def __init__(self, json, collection=None):
         self.collection = collection
         self.json = json
 
@@ -73,7 +73,9 @@ class CovisRun:
         print("Before:", self.json)
 
         entry = {'host': host, 'filename': filename}
-        self.json = self.collection.find_one_and_update({'basename': self.basename},
+
+        if self.collection:
+            self.json = self.collection.find_one_and_update({'basename': self.basename},
                     {'$addToSet': {'raw': entry}},
                     return_document=ReturnDocument.AFTER)
 

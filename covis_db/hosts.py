@@ -21,3 +21,11 @@ def is_nas(host):
 
 def is_dmas(host):
     return re_dmas.match(host) != None
+
+
+def best_raw(raws, priority=[re_covis_nas,re_old_covis_nas,re_dmas]):
+    for p in priority:
+        # Look for matching raw
+        for r in raws:
+            if p.match(r.host):
+                return r

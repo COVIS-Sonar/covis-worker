@@ -1,10 +1,12 @@
 from __future__ import absolute_import, unicode_literals
 from celery import Celery
 
+from decouple import config
+
 app = Celery('covis_worker',
-             broker='amqp://user:bitnami@localhost',
-             backend='rpc://',
-             include=['covis_worker.sample_tasks'])
+             broker=config('CELERY_BROKER', default='amqp://user:bitnami@localhost'),
+             backend=config('CELERY_BACKEND', default='rpc://'),
+             include=['covis_worker.sample_tasks', 'covis_worker.rezip'])
 
 # Optional configuration, see the application user guide.
 app.conf.update(
