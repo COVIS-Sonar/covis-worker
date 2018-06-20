@@ -1,5 +1,5 @@
 
-from pymongo import MongoClient
+from pymongo import MongoClient,ReturnDocument
 import re
 
 from decouple import config
@@ -30,9 +30,6 @@ class CovisDB:
                 return CovisRun(self.runs, r)
             else:
                 return None
-
-    # def update(self, basename, run):
-    #     return self.runs.find_one_and_update({'basename': basename}, run.json)
 
 class CovisRun:
 
@@ -67,11 +64,16 @@ class CovisRun:
         if self.find_raw(host,filename):
             return False
 
+        print("Before:", self.json)
+
         # TODO:  Validate hostname
 
-        self.json["raw"].append({"host": host, "filename": filename})
+        entry = {'host': host, 'filename': filename}
+        self.json = self.collection.find_one_and_update({'basename': self.basename},
+                    {'$addToSet': {'raw': entry}},
+                    return_document=ReturnDocument.AFTER)
 
-        self.collection.find_one_and_update({'basename': self.basename}, {'$set': {'raw': self.json['raw']}})
+        print("After:",self.json)
         return True
 
 re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)

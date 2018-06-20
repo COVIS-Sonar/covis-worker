@@ -45,6 +45,7 @@ def test_covis_add(covisdb):
 
     # This should succeed
     assert run.add_raw('COVIS-NAS', raw.filename)
+
     assert len(run.raw) == 2
 
     # Attempt to add again should fail
@@ -53,8 +54,6 @@ def test_covis_add(covisdb):
 
     assert run.find_raw( raw.host, raw.filename )
     assert run.find_raw( 'COVIS-NAS', raw.filename )
-
-    # covisdb.update(basename=good_basenames[0], run=run)
 
     ## Check that it's in the db
     r = covisdb.find(basename=good_basenames[0])
