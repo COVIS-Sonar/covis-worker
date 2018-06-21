@@ -23,8 +23,8 @@ parser.add_argument('--dest-host', dest="desthost", default="COVIS-NAS",
                     help='Destination host')
 
 parser.add_argument('--count', default=0, type=int,
-                        metavar='N',
-                        help="Only queue N entries (used for debugging)")
+                    metavar='N',
+                    help="Only queue N entries (used for debugging)")
 
 parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
@@ -40,10 +40,16 @@ client = db.CovisDB(MongoClient(args.dbhost))
 # Find run which are _not_ on NAS
 result = client.runs.aggregate( [
     {"$match": { "$and":
-                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
-                  #{ "mode":     {"$eq": "DIFFUSE"}} ]
+                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } },
+                  { "mode":     {"$eq": "DIFFUSE"}} ]
     } }
 ])
+
+# result = client.runs.aggregate( [
+#     {"$match": { "$and":
+#                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
+#     } }
+# ])
 
 i = 0
 for elem in result:
@@ -53,17 +59,11 @@ for elem in result:
     if args.count > 0 and i > args.count:
         break
 
-
-
-
     locations = [raw.host for raw in run.raw]
 
-    print("Basename %s is on %s" % (run.basename, ','.join(locations)))
-
+    print("Queuing rezip job for %s on %s" % (run.basename, ','.join(locations)))
 
     if not args.dryrun:
         job = rezip.rezip.delay(run.basename,args.desthost)
-
-
     else:
-        print("Dry run...")
+        print("Dry run, skippin...")

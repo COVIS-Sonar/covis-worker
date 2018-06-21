@@ -4,7 +4,7 @@ DMAS_TOKEN=a06ed13f-8aab-4cca-9dd5-b329dde1010d
 
 ## Assumes the local
 ## Check that test/data/{new,old}-covis-nas exist
-test:
+test: reset_small_db
 	python3 -m pytest test/
 
 TEST_DATA_DAT_URL=dat://8dc8f4eb4b51d286f3ed4d825016a27ca5888e24cb4fffca019c740acf01c2e4
@@ -25,15 +25,33 @@ get_test_data:
 	mkdir -p test/data/
 	cd test/ && dat clone ${TEST_DATA_DAT_URL} data/
 
-import_test: test/data/covis_dmas.json
-	#apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
-	#apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
-	#apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
 
-test_db: test/data/covis_dmas.json
+## Builds the small db 
+bootstrap_small_db: test/data/old_covis_nas1_small.txt
 	mongo covis --eval 'db.runs.drop()'
-	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1_small.txt
-	#apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $^
+	mongodump -d covis -c runs -o - > test/data/small_db_dump.bson
+
+reset_small_db: test/data/small_db_dump.bson
+	mongorestore -d covis -c runs --drop --dir=- < $^
+
+
+
+## Builds the large db
+bootstrap_large_db: test/data/covis_dmas.json
+	mongo covis --eval 'db.runs.drop()'
+	apps/import_file_list.py --dmas --log INFO  test/data/covis_dmas.json
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  test/data/old_covis_nas1.txt
+	apps/import_file_list.py --covis-nas old-covis-nas6 --log INFO  test/data/old_covis_nas6.txt
+	mongodump -d covis -c runs -o - > test/data/large_db_dump.bson
+
+reset_large_db: test/data/large_db_dump.bson
+	mongorestore -d covis -c runs --drop --dir=- < $^
+
+
+.PHONY: bootstrap_small_db reset_small_db bootstrap_large_db reset_large_db
+
+
 
 worker:
 	celery -A covis_worker worker -l info --config=c

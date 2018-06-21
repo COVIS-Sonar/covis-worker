@@ -101,7 +101,7 @@ for entry in files:
 
 
     try:
-        # This seems awkward, make a complete entry
+        # This seems awkward, make a complete entry?
         new_entry = {'basename': basename,
                      'raw': [file_entry]}
         new_entry.update(entry)
