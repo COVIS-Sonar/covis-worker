@@ -41,8 +41,8 @@ for host in args.hosts:
     objects = mio.list_objects( accessor.bucket, recursive=True )
 
     for obj in objects:
-        print(obj.bucket_name, obj.object_name.encode('utf-8'), obj.last_modified,
-                obj.etag, obj.size, obj.content_type)
+        # print(obj.bucket_name, obj.object_name.encode('utf-8'), obj.last_modified,
+        #         obj.etag, obj.size, obj.content_type)
 
         filename = str(obj.object_name)
         basename = misc.make_basename(filename)
@@ -51,7 +51,7 @@ for host in args.hosts:
         run = client.find(basename)
 
         if run:
-            print("basename %s exists in database" % basename)
+            print("   Basename %s exists in database" % basename)
 
             raw = run.find_raw( host, filename )
             if raw:
@@ -64,7 +64,14 @@ for host in args.hosts:
                     run.add_raw(host,filename)
 
         else:
-            print("basename %s is not in database" % basename)
+            print("!!! Basename %s is not in database" % basename)
 
             if args.fix:
-                print("FIX: Cannot fix missing entries at present...")
+                print("FIX: Adding run for %s" % basename)
+                run = client.add_run(basename)
+
+                if not run:
+                    print("FIX:   Error adding run for basename %s" % basename)
+                    continue
+
+                run.add_raw(host,filename)

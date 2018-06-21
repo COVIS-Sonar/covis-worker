@@ -2,6 +2,8 @@
 from pymongo import MongoClient,ReturnDocument
 import re
 
+import datetime
+
 from decouple import config
 
 from . import remote,hosts
@@ -29,6 +31,41 @@ class CovisDB:
             return CovisRun(r,collection=self.runs)
         else:
             return None
+
+    def add_run(self, basename, update=False):
+        existing = self.find(basename)
+
+        if existing:
+            if not update:
+                logging.info("Basename %s exists, not adding" % basename)
+                return None
+
+            logging.info("Basename %s exists, forcing update" % basename)
+
+        ## Break filename apart
+        parts = re.split(r'[\_\-]', basename)
+
+        date = datetime.datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
+        mode = parts[2]
+
+        # Insert validation here
+        entry = { 'basename': basename,
+                'datetime': date,
+                'mode': mode }
+
+        if date < datetime.datetime(2016,1,1):
+                entry['site'] = 'Endeavour'
+        else:
+                entry['site'] = 'Ashes'
+
+        # Preserve entries from existing
+        if existing:
+            entry['raw'] = existing['raw']
+            self.runs.remove({'basename': basename})
+
+        self.runs.insert_one(entry)
+
+        return self.find(basename)
 
 
 class CovisRun:

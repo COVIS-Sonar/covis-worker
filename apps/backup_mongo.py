@@ -34,6 +34,5 @@ if args.timestamp:
     dest = dest / datetime.now().strftime("%d%m%Y_%H%M%S.bson.gz")
 
 command = ['mongodump', '--uri=%s' % args.dbhost, '--gzip', '--archive=%s' % dest]
-print(command)
 
 subprocess.run(command)
