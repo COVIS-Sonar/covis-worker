@@ -55,9 +55,9 @@ for host in args.hosts:
 
             raw = run.find_raw( host, filename )
             if raw:
-                print(" ... and has raw for host %s" % host)
+                print("    and has raw for host %s" % host)
             else:
-                print(" ... but does not have raw entry for host %s." % host)
+                print("!!! but does not have raw entry for host %s." % host)
 
                 if args.fix:
                     print("FIX:   Adding raw entry for %s to database" % host)

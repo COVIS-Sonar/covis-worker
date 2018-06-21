@@ -116,6 +116,15 @@ class CovisRun:
 
         return True
 
+    def drop_raw(self,raw):
+        entry = {'host': raw.host, 'filename': raw.filename}
+
+        if self.collection:
+            print("Attempting to update collection")
+            res = self.collection.find_one_and_update({'basename': self.basename},
+                {'$pull': {'raw': entry}} )
+            print(res)
+
 
 class CovisRaw:
 

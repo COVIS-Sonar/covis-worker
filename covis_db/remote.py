@@ -6,6 +6,8 @@ import pathlib
 
 from decouple import config
 
+import logging
+
 from . import hosts
 
 from minio import Minio
@@ -34,18 +36,18 @@ class MinioAccessor:
 
 
     def minio_client(self):
-        print("Accessing minio host: %s" % self.url)
+        logging.debug("Accessing minio host: %s" % self.url)
         return Minio(self.url,
                   access_key=self.access_key,
                   secret_key=self.secret_key,
                   secure=False)
 
     def reader(self):
-        print("Getting object at %s / %s" % (self.bucket, self.path))
+        logging.debug("Getting object at %s / %s" % (self.bucket, self.path))
         return self.minio_client().get_object(self.bucket, self.path)
 
     def write(self, io, length):
-        print("Writing object to %s / %s" % (self.bucket, self.path))
+        loggin.debug("Writing object to %s / %s" % (self.bucket, self.path))
         return self.minio_client().put_object(self.bucket, self.path, io, length)
 
     def stats(self):
@@ -70,7 +72,7 @@ class OldCovisNasAccessor(MinioAccessor):
 
         ## Error checking here
 
-        print("Accessing old covis nas %d" % self.num)
+        logging.debug("Accessing old covis nas %d" % self.num)
 
         super().__init__(bucket="raw",
                          path=raw.filename,

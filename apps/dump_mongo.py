@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+# Dumps the mongodb to JSON .... this is strictly for debugging purposes,
+# as some data may be lost in translation to human-readable formatself.
+# Use mongodump or backup_mongo (which is a thin wrapper around mongodump) to make backups.
+
 from pprint import pprint
 import argparse
 import sys
