@@ -47,7 +47,7 @@ class MinioAccessor:
         return self.minio_client().get_object(self.bucket, self.path)
 
     def write(self, io, length):
-        loggin.debug("Writing object to %s / %s" % (self.bucket, self.path))
+        logging.debug("Writing object to %s / %s" % (self.bucket, self.path))
         return self.minio_client().put_object(self.bucket, self.path, io, length)
 
     def stats(self):

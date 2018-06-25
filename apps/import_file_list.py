@@ -100,7 +100,7 @@ for entry in files:
             'site': 'Endeavour' }
 
 
-    try:
+    if not client.runs.find( {'basename': basename} ):
         # This seems awkward, make a complete entry?
         new_entry = {'basename': basename,
                      'raw': [file_entry]}
@@ -109,7 +109,8 @@ for entry in files:
         client.runs.insert_one( new_entry )
         logging.info("Adding entry to db for %s" % basename)
 
-    except pymongo.errors.DuplicateKeyError as err:
+    #except pymongo.errors.DuplicateKeyError as err:
+    else:
         logging.info("Updating existing entry for %s" % basename)
 
         res = client.runs.update_one(

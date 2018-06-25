@@ -1,5 +1,12 @@
 
-DMAS_TOKEN=a06ed13f-8aab-4cca-9dd5-b329dde1010d
+
+TAG=amarburg/covis-worker:latest
+
+image:
+	docker build -t ${TAG} .
+
+push: image
+	docker push ${TAG}
 
 
 ## Assumes the local
@@ -11,8 +18,7 @@ TEST_DATA_DAT_URL=dat://8dc8f4eb4b51d286f3ed4d825016a27ca5888e24cb4fffca019c740a
 
 
 # Build local image
-build:
-	docker build -t amarburg/covis-worker:latest .
+test_build:
 	docker build -t amarburg/covis-worker:test -f docker_test_images/test_image/Dockerfile .
 
 drone: build
@@ -26,7 +32,7 @@ get_test_data:
 	cd test/ && dat clone ${TEST_DATA_DAT_URL} data/
 
 
-## Builds the small db 
+## Builds the small db
 bootstrap_small_db: test/data/old_covis_nas1_small.txt
 	mongo covis --eval 'db.runs.drop()'
 	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $^
@@ -54,7 +60,15 @@ reset_large_db: test/data/large_db_dump.bson
 
 
 worker:
-	celery -A covis_worker worker -l info --config=c
+	celery -A covis_worker worker -l info --concurrency 1
+
+## Set a default value
+CELERY_BROKER ?= amqp://user:bitnami@localhost
+
+flower:
+	celery flower -A covis_worker --broker=${CELERY_BROKER}
+
+
 
 
 
@@ -69,8 +83,6 @@ scrape_dmas:
 					"http://dmas.uvic.ca/api/archivefiles?method=getList&token=$(DMAS_TOKEN)&station=KEMF&deviceCategory=COVIS&dateFrom=2014-01-01T00:00:00.000Z&dateTo=2015-01-01T00:00:00.000Z"
 	curl -o seed_data/covis_dmas_2015.json \
 					"http://dmas.uvic.ca/api/archivefiles?method=getList&token=$(DMAS_TOKEN)&station=KEMF&deviceCategory=COVIS&dateFrom=2015-01-01T00:00:00.000Z&dateTo=2018-01-01T00:00:00.000Z"
-
-
 
 
 
@@ -101,4 +113,4 @@ restore:
 	mongorestore mongodb.backup
 
 .PHONY:  backup restore dump import_all import_covis_nas import_dmas \
-				import_test test get_test_data build drone
+				import_test test get_test_data build drone image push

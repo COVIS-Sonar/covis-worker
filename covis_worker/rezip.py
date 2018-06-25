@@ -31,92 +31,92 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
     print("Using source file %s:%s" % (raw.host, raw.filename))
 
-    workdir = "/tmp"  #tempfile.TemporaryDirectory(dir=tempdir).name
+    with tempfile.TemporaryDirectory(dir=tempdir) as workdir:
+
+        # Calculate output filename
+        # TODO make more flexible to different dest_fmts
+        outfile = pathlib.Path(workdir, basename+".7z")
+
+        accessor = raw.accessor()
+        # accessor.hostname = "localhost"
+
+        if not accessor:
+            print("Unable to get file %s" % basename)
+            return False
+
+        r = accessor.reader()
+        logging.info(r.info())
+
+        # Remove existing destination file
+        if os.path.isfile(str(outfile)):
+            logging.warning("Removing existing file")
+            os.remove(outfile)
 
 
-    # Calculate output filename
-    # TODO make more flexible to different dest_fmts
-    outfile = pathlib.Path(workdir, basename+".tar.7z")
+        do_update_contents = True
 
-    accessor = raw.accessor()
-    # accessor.hostname = "localhost"
+        if do_update_contents:
+            decompressed_path = workdir
 
-    if not accessor:
-        print("Unable to get file %s" % basename)
-        return False
+            ## Forces decode as gz file for now
+            with tarfile.open(fileobj=r,mode="r:gz") as tf:
+                tf.extractall(path=decompressed_path)
+                mem = tf.getmembers()
 
-    r = accessor.reader()
-    logging.info(r.info())
+                contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem]
 
-    # Remove existing destination file
-    if os.path.isfile(outfile):
-        logging.warning("Removing existing file")
-        os.remove(outfile)
+                ## Recompress
+                files = [str(n.name) for n in mem]
+                #"-mx=9",
+                command = ["7z", "a",  "-y", str(outfile)] + files
+                process = subprocess.run(command,cwd=str(decompressed_path))
 
+                run.collection.find_one_and_update({'basename': run.basename},
+                                                    {'$set': {"contents": contents }})
 
-    do_update_contents = True
+        else:
+            # If not updating contents, this can be done as a streaming operation
+            with tarfile.open(fileobj=r,mode="r:gz") as tf:
+                while True:
+                    mem = tf.next()
+                    if not mem:
+                        break
 
-    if do_update_contents:
-        decompressed_path = "/tmp"
+                    command = ["7z", "a", "-si%s" % mem.name, "-y", outfile]
 
-        with tarfile.open(fileobj=r,mode="r:*") as tf:
-            tf.extractall(path=decompressed_path)
-            mem = tf.getmembers()
-
-            contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem]
-
-            ## Recompress
-            files = [n.name for n in mem]
-            #"-mx=9",
-            command = ["7z", "a",  "-y", outfile] + files
-            process = subprocess.run(command,cwd=decompressed_path)
-
-            run.collection.find_one_and_update({'basename': run.basename},
-                                                {'$set': {"contents": contents }})
-
-    else:
-        # If not updating contents, this can be done as a streaming operation
-        with tarfile.open(fileobj=r,mode="r:*") as tf:
-            while True:
-                mem = tf.next()
-                if not mem:
-                    break
-
-                command = ["7z", "a", "-si%s" % mem.name, "-y", outfile]
-
-                with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
-                    with tf.extractfile(mem) as data:
-                        shutil.copyfileobj(data, process.stdin)
+                    with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                        with tf.extractfile(mem) as data:
+                            shutil.copyfileobj(data, process.stdin)
 
 
-    # Check the results
-    command = ["7z", "t", outfile]
-    child = subprocess.Popen(command)
-    child.wait()
+        # Check the results
+        command = ["7z", "t", str(outfile)]
+        child = subprocess.Popen(command)
+        child.wait()
 
-    if child.returncode != 0:
-        logging.error("7z test on file %s has non-zero return value" % outfile)
-        return False
+        if child.returncode != 0:
+            logging.error("7z test on file %s has non-zero return value" % str(outfile))
+            return False
 
-    logging.info(raw.filename)
-    dest_filename = pathlib.Path(raw.filename).parent / pathlib.Path(outfile).name
-    logging.info("Dest filename: %s" % dest_filename)
+        logging.info(raw.filename)
+        dest_filename = pathlib.Path(raw.filename).parent / pathlib.Path(outfile).name
+        logging.info("Dest filename: %s" % str(dest_filename))
 
-    logging.info("Uploading to destination host %s" % dest_host)
-    raw = db.CovisRaw({'host': dest_host, 'filename': str(dest_filename)} )
-    accessor = raw.accessor()
+        logging.info("Uploading to destination host %s" % dest_host)
+        raw = db.CovisRaw({'host': dest_host, 'filename': str(dest_filename)} )
+        accessor = raw.accessor()
 
-    if not accessor:
-        logging.error("Unable to get accessor for %s" % dest_host)
+        if not accessor:
+            logging.error("Unable to get accessor for %s" % dest_host)
 
-    statinfo = os.stat(outfile)
-    print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
-    with open(outfile, 'rb') as zfile:
-        accessor.write(zfile,statinfo.st_size)
+        statinfo = os.stat(str(outfile))
+        print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
+        with open(str(outfile), 'rb') as zfile:
+            accessor.write(zfile,statinfo.st_size)
 
-    logging.info("Upload successful, updating DB")
-    if not run.add_raw(raw.host, raw.filename):
-        logging.info("Error inserting into db...")
+        logging.info("Upload successful, updating DB")
+        if not run.add_raw(raw.host, raw.filename):
+            logging.info("Error inserting into db...")
 
 
 
@@ -134,7 +134,7 @@ def shasum(path):
     BLOCKSIZE = 65536
 
     sha = hash.sha1()
-    with open(path, 'rb') as infile:
+    with open(str(path), 'rb') as infile:
         file_buffer = infile.read(BLOCKSIZE)
         while len(file_buffer) > 0:
             sha.update(file_buffer)
