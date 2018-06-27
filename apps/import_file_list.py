@@ -100,13 +100,13 @@ for entry in files:
             'site': 'Endeavour' }
 
 
-    if not client.runs.find( {'basename': basename} ):
+    if not client.runs.find_one( {'basename': basename} ):
         # This seems awkward, make a complete entry?
         new_entry = {'basename': basename,
                      'raw': [file_entry]}
         new_entry.update(entry)
 
-        client.runs.insert_one( new_entry )
+        res=client.runs.insert_one( new_entry )
         logging.info("Adding entry to db for %s" % basename)
 
     #except pymongo.errors.DuplicateKeyError as err:
@@ -117,6 +117,6 @@ for entry in files:
             {'basename': basename},
             { '$set': entry,
               '$pull': { "raw": { "host": file_entry['host'] } } } )
-        client.runs.update_one(
+        res=client.runs.update_one(
             {'basename': basename},
             { '$push': { "raw": file_entry } } )
