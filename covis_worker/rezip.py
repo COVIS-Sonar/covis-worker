@@ -68,7 +68,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
                 ## Recompress
                 files = [str(n.name) for n in mem]
                 #"-mx=9",
-                command = ["7z", "a",  "-y", str(outfile)] + files
+                command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
                 process = subprocess.run(command,cwd=str(decompressed_path))
 
                 run.collection.find_one_and_update({'basename': run.basename},
@@ -82,7 +82,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
                     if not mem:
                         break
 
-                    command = ["7z", "a", "-si%s" % mem.name, "-y", outfile]
+                    command = ["7z", "a", "-bd", "-si%s" % mem.name, "-y", outfile]
 
                     with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
                         with tf.extractfile(mem) as data:
@@ -90,7 +90,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
 
         # Check the results
-        command = ["7z", "t", str(outfile)]
+        command = ["7z", "t", "-bd", str(outfile)]
         child = subprocess.Popen(command)
         child.wait()
 
