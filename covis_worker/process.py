@@ -53,7 +53,12 @@ def process(basename, destination, process_json, plot_json ):
 
         with runtime.Runtime() as pp:
             matfile = pp.covis_imaging_sweep(rawPath, workdir, process_json)
+
+            logging.info("Resulting matfile: %s" % matfile)
+
             imgfile = pp.covis_imaging_plot(matfile, workdir, plot_json)
+
+            logging.info("Resulting plot file: %s" % imgfile)
 
             ## Upload to dest
 
