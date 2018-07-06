@@ -12,7 +12,7 @@ ADD setup.py Makefile wait-for-it.sh ./
 ADD apps/          ./apps/
 ADD covis_db/      ./covis_db/
 ADD covis_worker/  ./covis_worker/
-ADD seed_data/     ./seed_data/
+ADD seed_data/seed_data.bson ./
 
 ## Make input/ directory local to working directory.
 RUN ln -s ~/input .
