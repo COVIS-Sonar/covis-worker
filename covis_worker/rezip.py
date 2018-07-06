@@ -20,7 +20,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
     print("Rezipping %s and storing to %s" % (basename, dest_host))
 
     client = db.CovisDB()
-    run = client.find(basename)
+    run = client.find_one(basename)
 
     if not run:
         # What's the canonical way to report errors

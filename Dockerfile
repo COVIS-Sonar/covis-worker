@@ -14,6 +14,9 @@ ADD covis_db/      ./covis_db/
 ADD covis_worker/  ./covis_worker/
 ADD seed_data/     ./seed_data/
 
+## Make input/ directory local to working directory.
+RUN ln -s ~/input .
+
 RUN pip3 install -e .
 
 ENTRYPOINT ["make", "worker"]

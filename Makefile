@@ -2,12 +2,15 @@
 
 TAG=amarburg/covis-worker:latest
 
-image:
+build:
 	docker build -t ${TAG} .
 
 push: image
 	docker push ${TAG}
 
+
+docker_process_local: build
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 ## Assumes the local
 ## Check that test/data/{new,old}-covis-nas exist
@@ -102,6 +105,7 @@ import_all: import_dmas import_covis_nas
 
 
 
+
 # Dump mongodb to JSON
 dump:
 	apps/dump_mongo.py > dump.json
@@ -113,4 +117,5 @@ restore:
 	mongorestore mongodb.backup
 
 .PHONY:  backup restore dump import_all import_covis_nas import_dmas \
-				import_test test get_test_data build drone image push
+			import_test test get_test_data build drone build push \
+			docker_process_test

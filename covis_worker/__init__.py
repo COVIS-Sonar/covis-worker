@@ -1,2 +1,2 @@
 
-__all__ = ["rezip","celery"]
+__all__ = ["rezip","celery","process"]

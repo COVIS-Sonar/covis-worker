@@ -3,9 +3,15 @@ from pymongo import MongoClient,ReturnDocument
 import re
 
 import datetime
+import logging
 
 from decouple import config
 
+import shutil
+import subprocess
+import glob
+
+from os import path
 from . import remote,hosts
 
 
@@ -25,7 +31,7 @@ class CovisDB:
         self.db = self.client[config('MONGODB_DB', default='covis')]
         self.runs = self.db[config('MONGODB_RUNS_TABLE', default='runs')]
 
-    def find(self, basename):
+    def find_one(self, basename):
         r = self.runs.find_one({'basename': basename})
         if r:
             return CovisRun(r,collection=self.runs)
@@ -33,7 +39,7 @@ class CovisDB:
             return None
 
     def add_run(self, basename, update=False):
-        existing = self.find(basename)
+        existing = self.find_one(basename)
 
         if existing:
             if not update:
@@ -65,7 +71,7 @@ class CovisDB:
 
         self.runs.insert_one(entry)
 
-        return self.find(basename)
+        return self.find_one(basename)
 
 
 class CovisRun:
@@ -152,3 +158,35 @@ class CovisRaw:
 
     def reader(self):
         return self.accessor().reader()
+
+    def extract(self, workdir):
+
+        root,ext = path.splitext(self.filename)
+
+        if ext == '.7z':
+            command = ["7z", "e",  "-bd", "-y", "-o", workdir, "-si"]
+
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        elif ext == '.gz':
+            command = ["tar", "-C", workdir, "-xzvf", "-"]
+
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        elif ext == '.tar':
+            command = ["tar", "-C", workdir, "-xvf", "-"]
+
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        else:
+            logging.error("Don't know how to handle extension: %s", ext)
+
+        contents = glob.glob(workdir + "/APLUWCOVIS*/")
+
+        return contents[0]

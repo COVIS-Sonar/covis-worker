@@ -25,8 +25,11 @@ class MinioAccessor:
         self.secret_key=config("%s_SECRET_KEY"  % config_base )
         self.url = config("%s_URL" % config_base )
 
+        logging.info("Using minio url %s" % self.url)
+
         self.bucket = bucket
         self.path = path
+
 
     # def host(self):
     #     return self._host
