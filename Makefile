@@ -1,7 +1,11 @@
 
 
-TAG=amarburg/covis-worker:latest
+
 TEST_DATA=covis-test-data/
+
+## Docker-related tasks
+
+TAG=amarburg/covis-worker:latest
 
 build:
 	docker build -t ${TAG} .
@@ -14,7 +18,7 @@ docker_process_local: build
 
 ## Assumes the local
 ## Check that test/data/{new,old}-covis-nas exist
-test: reset_db
+test: reset_test_db
 	python3 -m pytest test/
 
 
@@ -26,15 +30,15 @@ drone: build
 	drone exec
 
 ## The services in docker_compose.yml must exist for testing
-drop_db:
+drop_test_db:
 	mongo covis --eval 'db.runs.drop()'
 
 ## Builds the small db
-bootstrap_db: ${TEST_DATA}/old_covis_nas1.txt drop_db
+${TEST_DATA}/old_covis_nas1.bson: ${TEST_DATA}/old_covis_nas1.txt drop_test_db
 	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $^
 	mongodump -d covis -c runs -o - > ${TEST_DATA}/old_covis_nas1.bson
 
-reset_db: ${TEST_DATA}/old_covis_nas1.bson
+reset_test_db: ${TEST_DATA}/old_covis_nas1.bson
 	mongorestore -d covis -c runs --drop --dir=- < $^
 
 
@@ -51,7 +55,7 @@ reset_db: ${TEST_DATA}/old_covis_nas1.bson
 # 	mongorestore -d covis -c runs --drop --dir=- < $^
 
 
-.PHONY: drop_db bootstrap_db reset_db
+.PHONY: drop_test_db reset_test_db
 
 
 

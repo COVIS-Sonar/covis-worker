@@ -67,7 +67,14 @@ if not config["selector"]:
     logging.error("No basenames provided")
     exit()
 
+## Default
+config["dest"] = { "minio": { "host": "covis-nas",
+                            "bucket": "postprocessed" }}
+
 # Validate configuration
+if "dest" not in config:
+    logging.error("No destination provided")
+    exit()
 
 client = db.CovisDB(MongoClient(args.dbhost))
 
@@ -80,11 +87,11 @@ with client.runs.find(config["selector"]) as results:
         if not args.dryrun:
 
             if args.runlocal:
-                job = process.process(r['basename'],0,
+                job = process.process(r['basename'], config["dest"],
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
             else:
-                job = process.process.delay(r['basename'],0,
+                job = process.process.delay(r['basename'],config["dest"],
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
         else:
