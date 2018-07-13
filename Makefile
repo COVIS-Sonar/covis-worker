@@ -13,11 +13,18 @@ build:
 push: image
 	docker push ${TAG}
 
-docker_process_local: build
+process_local: build
 	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
-docker_process_local_job: build
+process_local_job: build
 	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+process: build
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+process_job: build
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
 
 
 ## Assumes the local
@@ -65,6 +72,9 @@ reset_test_db: ${TEST_DATA}/old_covis_nas1.bson
 
 
 ## Targets that relate to running the worker
+
+docker_worker: build
+	docker run --rm -it --env-file docker.env --network covis_default	${TAG}
 
 worker:
 	celery -A covis_worker worker -l info --concurrency 1

@@ -5,7 +5,6 @@ import logging
 import tempfile
 import json
 import subprocess
-from datetime import datetime
 from decouple import config
 
 from pathlib import Path
@@ -18,7 +17,7 @@ from minio import Minio
 
 @app.task
 def process(basename, destination,
-            job_id = None,
+            job_prefix = None,
             process_json = None,
             plot_json = None):
 
@@ -109,13 +108,8 @@ def process(basename, destination,
                 # TODO: Should move this to a function
                 destDir = Path(run.datetime.strftime("%Y/%m/%d/")) / basename
 
-                prefix = ""
-                if job_id:
-                    prefix = "by_job_id/%s" % job_id
-                else:
-                    prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
 
-                destDir = Path(prefix) / destDir
+                destDir = Path(job_prefix) / destDir
 
                 logging.info("Saving to %s" % destDir )
 

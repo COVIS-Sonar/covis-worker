@@ -10,6 +10,8 @@ from pymongo import MongoClient
 from bson import json_util
 from decouple import config
 from covis_db import db, hosts
+from datetime import datetime
+
 
 from covis_worker import process
 
@@ -85,6 +87,12 @@ if "dest" not in config:
 
 client = db.CovisDB(MongoClient(args.dbhost))
 
+prefix = ""
+if "job_id" in config:
+    prefix = "by_job_id/%s" % config["job_id"]
+else:
+    prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
+
 ## If specified, load the JSON configuration
 with client.runs.find(config["selector"]) as results:
 
@@ -95,12 +103,12 @@ with client.runs.find(config["selector"]) as results:
 
             if args.runlocal:
                 job = process.process(r['basename'], config["dest"],
-                                        job_id = config.get("job_id",""),
+                                        job_prefix = prefix,
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
             else:
                 job = process.process.delay(r['basename'],config["dest"],
-                                        job_id = config.get("job_id",""),
+                                        job_prefix = prefix,
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
         else:
