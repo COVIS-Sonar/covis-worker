@@ -3,7 +3,9 @@ from .celery import app
 
 import logging
 import tempfile
+import json
 import subprocess
+from datetime import datetime
 from decouple import config
 
 from pathlib import Path
@@ -15,13 +17,27 @@ from covis_db import hosts,db
 from minio import Minio
 
 @app.task
-def process(basename, destination, process_json, plot_json ):
+def process(basename, destination,
+            job_id = None,
+            process_json = None,
+            plot_json = None):
 
     logging.info("Processing data from %s" % basename)
 
-    if not destination or ("minio" not in destination):
+    if not destination:
         logger.error("No destination specified")
         return
+
+    valid = False
+
+    # Validate destination before Processing
+    if "minio" in destination:
+        mdest = destination["minio"]
+        if "host" not in mdest or not hosts.validate_host(mdest["host"]):
+            logger.error("Invalid host specified for minio destination")
+            return False
+
+        valid = True
 
     client = db.CovisDB()
     run = client.find_one(basename)
@@ -58,21 +74,52 @@ def process(basename, destination, process_json, plot_json ):
         rawPath = raw.extract( workdir )
 
         with runtime.Runtime() as pp:
-            matfile = pp.covis_imaging_sweep(rawPath, workdir, process_json)
+            metadata = pp.postproc_metadata()
+
+            matfile = None
+            if process_json:
+                logging.debug("Using process JSON file %s" % process_json)
+                matfile = pp.covis_process_sweep(rawPath, workdir, 'json_file', process_json)
+            else:
+                logging.debug("Using process JSON file %s" % process_json)
+                matfile = pp.covis_process_sweep(rawPath, workdir)
 
             logging.info("Resulting matfile: %s" % matfile)
 
-            imgfile = pp.covis_imaging_plot(matfile, workdir, plot_json)
+            imgfile = None
+            if plot_json:
+                logging.debug("Using plot JSON file %s" % plot_json)
+                imgfile = pp.covis_plot_sweep(matfile, workdir, 'json_file', plot_json)
+            else:
+                logging.debug("Using plot JSON file %s" % plot_json)
+                imgfile = pp.covis_plot_sweep(matfile, workdir)
 
             logging.info("Resulting plot file: %s" % imgfile)
 
 
+            ## Write out metadata
+            metadata_file = str(Path(workdir) / "metadata.json")
+            logging.info("Metadata file: %s" % metadata_file)
+            with open( metadata_file, 'w') as m:
+                json.dump(metadata, m, indent=2)
+
             if "minio" in destination:
-                destDir = Path(raw.filename).parent / basename
 
-                logging.info("Saving to %s" % destDir)
+                # Rebuild new pathname based on date
+                # TODO: Should move this to a function
+                destDir = Path(run.datetime.strftime("%Y/%m/%d/")) / basename
 
-                config_base = "NAS"
+                prefix = ""
+                if job_id:
+                    prefix = "by_job_id/%s" % job_id
+                else:
+                    prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
+
+                destDir = Path(prefix) / destDir
+
+                logging.info("Saving to %s" % destDir )
+
+                config_base = hosts.config_base( destination["minio"]["host"] )
                 access_key=config("%s_ACCESS_KEY"  % config_base )
                 secret_key=config("%s_SECRET_KEY"  % config_base )
                 url = config("%s_URL" % config_base )
@@ -97,6 +144,9 @@ def process(basename, destination, process_json, plot_json ):
 
                 path = destDir / Path(imgfile).name
                 client.fput_object(bucket, str(path), imgfile)
+
+                path = destDir / "metadata.json"
+                client.fput_object(bucket, str(path), metadata_file)
 
 
 

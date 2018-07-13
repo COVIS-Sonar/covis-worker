@@ -16,6 +16,10 @@ push: image
 docker_process_local: build
 	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
+docker_process_local_job: build
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+
 ## Assumes the local
 ## Check that test/data/{new,old}-covis-nas exist
 test: reset_test_db
@@ -34,12 +38,13 @@ drop_test_db:
 	mongo covis --eval 'db.runs.drop()'
 
 ## Builds the small db
-${TEST_DATA}/old_covis_nas1.bson: ${TEST_DATA}/old_covis_nas1.txt drop_test_db
-	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $^
+${TEST_DATA}/old_covis_nas1.bson: ${TEST_DATA}/old_covis_nas1.txt
+	mongo covis --eval 'db.runs.drop()'
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $<
 	mongodump -d covis -c runs -o - > ${TEST_DATA}/old_covis_nas1.bson
 
 reset_test_db: ${TEST_DATA}/old_covis_nas1.bson
-	mongorestore -d covis -c runs --drop --dir=- < $^
+	mongorestore -d covis -c runs --drop --dir=- < $<
 
 
 
@@ -99,7 +104,7 @@ import_covis_nas: seed_data/covis-nas?.txt
 	$(foreach var,$(COVIS_NAS),apps/import_file_list.py --log INFO --covis-nas old-covis-nas$(var) seed_data/covis-nas$(var).txt;)
 
 seed_data/seed_data.bson: drop_db import_dmas import_covis_nas
-	mongodump -d covis -c runs -o - > seed_data/seed_data.bson
+	mongodump -d covis -o - > seed_data/seed_data.bson
 
 import_seed_data: seed_data.bson
 		mongorestore -d covis -c runs --drop --dir=- < seed_data/seed_data.bson

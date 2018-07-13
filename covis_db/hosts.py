@@ -12,6 +12,16 @@ def validate_host(host):
 
     return False
 
+def config_base(host):
+    if is_nas(host):
+        return "NAS"
+    elif is_dmas(host):
+        return "DMAS"
+    elif is_old_nas(host):
+        ## Inefficient, requires two regexps
+        m = re_old_covis_nas.search(host)
+        num = int(m.group(1))
+        return "OLD_NAS%d" % num
 
 def is_old_nas(host):
     return re_old_covis_nas.match(host) != None

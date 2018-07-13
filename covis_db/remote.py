@@ -65,29 +65,19 @@ class MinioAccessor:
 
 # re_old_covis_nas = re.compile( r"old-covis-nas(\d+)", re.IGNORECASE)
 
-class OldCovisNasAccessor(MinioAccessor):
-
-    def __init__(self, raw):
-
-        # Identify which old nas
-        m = hosts.re_old_covis_nas.search(raw.host)
-        self.num = int(m.group(1))
-
-        ## Error checking here
-
-        logging.debug("Accessing old covis nas %d" % self.num)
-
-        super().__init__(bucket="raw",
-                         path=raw.filename,
-                         config_base="OLD_NAS%d" % self.num)
-
-    def write(self, io):
-        raise "Can't write to the old covis NAS"
-
 class CovisNasAccessor(MinioAccessor):
 
     def __init__(self, raw):
 
         super().__init__(bucket="raw",
                          path=raw.filename,
-                         config_base="NAS")
+                         config_base=hosts.config_base(raw.host))
+
+
+class OldCovisNasAccessor(CovisNasAccessor):
+
+    def __init__(self, raw):
+        super().__init__(raw)
+
+    def write(self, io):
+        raise "Can't write to the old covis NAS"

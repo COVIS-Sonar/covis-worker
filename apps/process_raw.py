@@ -30,6 +30,9 @@ parser.add_argument('--log', metavar='log', nargs='?',
                     default=config('LOG_LEVEL', default='INFO'),
                     help='Logging level')
 
+parser.add_argument('--job', metavar='log', nargs='?',
+                    help='Job name')
+
 parser.add_argument('--count', default=0, type=int,
                     metavar='N',
                     help="Only queue N entries (used for debugging)")
@@ -63,6 +66,10 @@ if args.config:
 if args.basename:
     config["selector"] = { "basename": { "$in": args.basename } }
 
+if args.job:
+    config["job_id"] = args.job
+
+
 if not config["selector"]:
     logging.error("No basenames provided")
     exit()
@@ -88,10 +95,12 @@ with client.runs.find(config["selector"]) as results:
 
             if args.runlocal:
                 job = process.process(r['basename'], config["dest"],
+                                        job_id = config.get("job_id",""),
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
             else:
                 job = process.process.delay(r['basename'],config["dest"],
+                                        job_id = config.get("job_id",""),
                                         process_json = config.get("process_json", ""),
                                         plot_json = config.get("plot_json", ""))
         else:
