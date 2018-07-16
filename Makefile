@@ -10,7 +10,7 @@ TAG=amarburg/covis-worker:latest
 build:
 	docker build -t ${TAG} .
 
-push: image
+push: build
 	docker push ${TAG}
 
 process_local: build
@@ -77,14 +77,13 @@ docker_worker: build
 	docker run --rm -it --env-file docker.env --network covis_default	${TAG}
 
 worker:
-	celery -A covis_worker worker -l info --concurrency 1
+	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
 
-## Set a default value
+## Use the ENV variable preferentially, otherwise here's a default
 CELERY_BROKER ?= amqp://user:bitnami@localhost
 
 flower:
 	celery flower -A covis_worker --broker=${CELERY_BROKER}
-
 
 
 

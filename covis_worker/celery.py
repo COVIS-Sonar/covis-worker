@@ -8,6 +8,8 @@ app = Celery('covis_worker',
              backend=config('CELERY_BACKEND', default='rpc://'),
              include=['covis_worker.process', 'covis_worker.rezip'])
 
+app.broker_connection_timeout = 30
+
 # Optional configuration, see the application user guide.
 app.conf.update(
     result_expires=3600,

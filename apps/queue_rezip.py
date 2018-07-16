@@ -11,7 +11,7 @@ from bson import json_util
 from decouple import config
 from covis_db import db, hosts
 
-from covis_worker import rezip,sample_tasks
+from covis_worker import rezip
 
 
 parser = argparse.ArgumentParser()
