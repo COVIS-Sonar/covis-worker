@@ -1,4 +1,4 @@
-## This compose is _for local testing_
+# Launches all services necessary _for local testing_
 # Data is not persisted
 version: '3'
 

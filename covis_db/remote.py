@@ -13,6 +13,10 @@ from . import hosts
 from minio import Minio
 from minio.error import ResponseError, NoSuchKey
 
+from io import BytesIO
+
+import requests
+
 
 class MinioAccessor:
 
@@ -81,3 +85,34 @@ class OldCovisNasAccessor(CovisNasAccessor):
 
     def write(self, io):
         raise "Can't write to the old covis NAS"
+
+
+
+class DmasAccessor:
+
+    '''Uses ONC Oceans 2.0 API:
+         https://wiki.oceannetworks.ca/display/O2A/Oceans+2.0+API+Home
+    '''
+
+    def __init__(self,
+                path=None):
+
+        self.dmas_key=config("DMAS_API_KEY" )
+        self.path = path
+
+        logging.info("Accessing DMAS for %s" % self.path)
+
+    def reader(self):
+
+        logging.debug("Getting object %s from DMAS" % self.path)
+
+        params = {'method': 'getFile',
+                    'token': self.dmas_key,
+                    'filename': self.path }
+
+        r = requests.get("https://data.oceannetworks.ca/api/archivefiles", params=params)
+
+        ## As a shortcut, throw an exception if status is bad
+        r.raise_for_status()
+
+        return BytesIO(r.content)

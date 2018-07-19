@@ -45,12 +45,13 @@ drop_test_db:
 	mongo covis --eval 'db.runs.drop()'
 
 ## Builds the small db
-${TEST_DATA}/old_covis_nas1.bson: ${TEST_DATA}/old_covis_nas1.txt
+${TEST_DATA}/test_db.bson: ${TEST_DATA}/old_covis_nas1.txt ${TEST_DATA}/covis_dmas.json
 	mongo covis --eval 'db.runs.drop()'
-	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO  $<
-	mongodump -d covis -c runs -o - > ${TEST_DATA}/old_covis_nas1.bson
+	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO ${TEST_DATA}/old_covis_nas1.txt
+	apps/import_file_list.py --dmas --log INFO ${TEST_DATA}/covis_dmas.json
+	mongodump -d covis -c runs -o - > $@
 
-reset_test_db: ${TEST_DATA}/old_covis_nas1.bson
+reset_test_db: ${TEST_DATA}/test_db.bson
 	mongorestore -d covis -c runs --drop --dir=- < $<
 
 

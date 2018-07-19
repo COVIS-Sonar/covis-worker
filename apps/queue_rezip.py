@@ -33,6 +33,8 @@ parser.add_argument('--count', default=0, type=int,
 
 parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
+parser.add_argument('--run-local', dest='runlocal', action='store_true')
+
 parser.add_argument('--skip-dmas', dest='skipdmas', action='store_true',
                     help='Skip files which are only on DMAS')
 
@@ -46,24 +48,23 @@ if not hosts.validate_host(args.desthost):
 
 client = db.CovisDB(MongoClient(args.dbhost))
 
-# Find run which are _not_ on NAS
-result = client.runs.aggregate( [
+selector = [
     {"$match": { "$and":
-                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } }
-                ]
+                [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
     } }
-])
+]
 
-#                  { "mode":     {"$eq": "DIFFUSE"}} ]
+## Should be able to implement skipdmas as a MongoDB selector
+# if args.skipdmas:
+#     selector[0]["$match"]["$and"].append( { "raw.host": { "$not": { "$eq": "DMAS" } } } )
+
+if args.count > 0:
+    selector.append( {"$sample": {"size": args.count} } )
+
+# Find run which are _not_ on NAS
+result = client.runs.aggregate( selector )
 
 
-# result = client.runs.aggregate( [
-#     {"$match": { "$and":
-#                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
-#     } }
-# ])
-
-i = 0
 for elem in result:
 
     run = db.CovisRun(elem)
@@ -79,11 +80,11 @@ for elem in result:
 
     logging.info("Queuing rezip job for %s on %s" % (run.basename, ','.join(locations)))
 
-    if not args.dryrun:
-        job = rezip.rezip.delay(run.basename,args.desthost)
-    else:
+    if args.dryrun:
         print("Dry run, skipping...")
+        continue
 
-    i = i+1
-    if args.count > 0 and i > args.count:
-        break
+    if args.runlocal:
+        job = rezip.rezip(run.basename,args.desthost)
+    else:
+        job = rezip.rezip.delay(run.basename,args.desthost)

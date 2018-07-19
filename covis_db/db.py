@@ -154,7 +154,7 @@ class CovisRaw:
         elif hosts.is_nas(self.host):
             return remote.CovisNasAccessor(self)
         elif hosts.is_dmas(self.host):
-            return None
+            return remote.DmasAccessor(path=self.filename)
 
     def reader(self):
         return self.accessor().reader()

@@ -1,21 +1,18 @@
 
 
-all: covis_test_minio
+all: covis_test_minio covis_test_minio_with_test_data
 
 covis_test_minio: covis_test_minio/Dockerfile
-	cd $@ && docker build -t covis-worker/$@ .
+	cd $@ && docker build -t amarburg/covis_test_minio .
 
-# minio_old_nas: minio_base
-# 	cd $@ && docker build -t amarburg/covis_test_$@ .
-#
-# minio_new_nas: minio_base
-# 	cd $@ && docker build -t amarburg/covis_test_$@ .
-#
-# push:
-# 	docker push amarburg/covis_test_minio_old_nas
-# 	docker push amarburg/covis_test_minio_new_nas
+covis_test_minio_with_test_data: covis_test_minio_with_test_data/Dockerfile
+	cd $@ && docker build -t amarburg/covis_test_minio:test_data .
+
+push: covis_test_minio covis_test_minio_with_test_data
+	docker push amarburg/covis_test_minio
+	docker push amarburg/covis_test_minio:test_data
 
 clean:
-	docker rmi -f covis-worker/minio_base #amarburg/covis_test_minio_old_nas amarburg/covis_test_minio_new_nas
+	docker rmi -f covis-worker/minio_base
 
 .PHONY: all

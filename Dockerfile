@@ -1,6 +1,7 @@
 FROM amarburg/covis-postprocess:latest
 
-RUN apt-get update && apt install -yq --no-install-recommends libarchive-dev netcat p7zip-full && \
+RUN apt-get update && apt install -yq --no-install-recommends \
+                            libarchive-dev netcat p7zip-full && \
       rm -rf /var/lib/apt/lists/*
 
 ## Install dependencies by hand so they get cached by Docker!

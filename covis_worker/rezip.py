@@ -2,7 +2,7 @@ from __future__ import absolute_import, unicode_literals
 from .celery import app
 
 import tempfile
-import pathlib
+from pathlib import Path
 import logging
 import os
 
@@ -13,7 +13,7 @@ import tarfile
 
 import hashlib as hash
 
-from covis_db import hosts,db
+from covis_db import hosts,db,misc
 
 @app.task
 def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
@@ -29,13 +29,13 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
     raw = hosts.best_raw(run.raw)
 
-    print("Using source file %s:%s" % (raw.host, raw.filename))
+    logging.info("Using source file %s:%s" % (raw.host, raw.filename))
 
     with tempfile.TemporaryDirectory(dir=tempdir) as workdir:
 
         # Calculate output filename
         # TODO make more flexible to different dest_fmts
-        outfile = pathlib.Path(workdir, basename+".7z")
+        outfile = Path(workdir, basename+".7z")
 
         accessor = raw.accessor()
         # accessor.hostname = "localhost"
@@ -45,7 +45,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             return False
 
         r = accessor.reader()
-        logging.info(r.info())
+        #logging.info(r.info())
 
         # Remove existing destination file
         if os.path.isfile(str(outfile)):
@@ -58,8 +58,14 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         if do_update_contents:
             decompressed_path = workdir
 
+            mode="r"
+
+            ext = Path(raw.filename).suffix
+            if ext == '.gz':
+                mode="r:gz"
+
             ## Forces decode as gz file for now
-            with tarfile.open(fileobj=r,mode="r:gz") as tf:
+            with tarfile.open(fileobj=r,mode=mode) as tf:
                 tf.extractall(path=decompressed_path)
                 mem = tf.getmembers()
 
@@ -98,8 +104,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             logging.error("7z test on file %s has non-zero return value" % str(outfile))
             return False
 
-        logging.info(raw.filename)
-        dest_filename = pathlib.Path(raw.filename).parent / pathlib.Path(outfile).name
+        dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / misc.make_basename(outfile)
         logging.info("Dest filename: %s" % str(dest_filename))
 
         logging.info("Uploading to destination host %s" % dest_host)
@@ -122,7 +127,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
 def tarInfoToContentsEntry(ti, workdir):
     ## Calculated
-    sha = shasum(pathlib.Path(workdir, ti.name))
+    sha = shasum(Path(workdir, ti.name))
 
     return {'name': ti.name,
             'size': ti.size,
