@@ -5,10 +5,10 @@ RUN apt-get update && apt install -yq --no-install-recommends \
       rm -rf /var/lib/apt/lists/*
 
 ## Install dependencies by hand so they get cached by Docker!
-RUN pip3 install celery flower minio pymongo libarchive python-decouple
+RUN pip3 install celery flower minio pymongo libarchive python-decouple requests
 
 # Install the local python packages
-WORKDIR /root/covis-worker
+WORKDIR /code/covis-worker
 ADD setup.py Makefile wait-for-it.sh ./
 ADD apps/          ./apps/
 ADD covis_db/      ./covis_db/
@@ -19,5 +19,11 @@ ADD seed_data/seed_data.bson ./
 RUN ln -s ~/input .
 
 RUN pip3 install -e .
+
+## Switch to non-root user "covis"
+RUN groupadd -g 999 covis && \
+    useradd -r -u 999 -g covis covis
+RUN chown -R covis:covis /code
+USER covis
 
 ENTRYPOINT ["make", "worker"]
