@@ -1,4 +1,5 @@
-ta
+from __future__ import absolute_import, unicode_literals
+from .celery import app
 
 import logging
 import tempfile
