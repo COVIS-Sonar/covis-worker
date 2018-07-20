@@ -1,43 +1,88 @@
 
-from pymongo import MongoClient
+from pymongo import MongoClient,ReturnDocument
 import re
 
-from . import remote
+import datetime
+import logging
+
+from decouple import config
+
+import shutil
+import subprocess
+import glob
+
+from os import path
+from . import remote,hosts
+
 
 # Thin wrapper around MongoDB client accessor
 #
-#
 class CovisDB:
 
-    def __init__(self, db_client = None):
+    def __init__(self, db_client=None):
 
         if db_client:
             self.client = db_client
         else:
-            self.client = MongoClient()
+            mongo_url = config('MONGODB_URL', default="mongodb://localhost/")
+            print("Connecting to %s" % mongo_url)
+            self.client = MongoClient(mongo_url)
 
-        self.db = self.client.covis
-        self.runs = self.db.runs
+        self.db = self.client[config('MONGODB_DB', default='covis')]
+        self.runs = self.db[config('MONGODB_RUNS_TABLE', default='runs')]
 
-    def find( self, basename=None ):
-        if basename:
-            return self.find_by_basename(basename)
-
-    def find_by_basename(self, basename):
-        print("Searching for basename: %s" % (basename))
-
-        # Expect small returns, so unwrap
+    def find_one(self, basename):
         r = self.runs.find_one({'basename': basename})
-
         if r:
-            return CovisRun(r)
+            return CovisRun(r,collection=self.runs)
         else:
             return None
 
+    def add_run(self, basename, update=False):
+        existing = self.find_one(basename)
+
+        if existing:
+            if not update:
+                logging.info("Basename %s exists, not adding" % basename)
+                return None
+
+            logging.info("Basename %s exists, forcing update" % basename)
+
+        ## Break filename apart
+        parts = re.split(r'[\_\-]', basename)
+
+        date = datetime.datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
+        mode = parts[2]
+
+        # Insert validation here
+        entry = { 'basename': basename,
+                'datetime': date,
+                'mode': mode }
+
+        if date < datetime.datetime(2016,1,1):
+                entry['site'] = 'Endeavour'
+        else:
+                entry['site'] = 'Ashes'
+
+        # Preserve entries from existing
+        if existing:
+            entry['raw'] = existing['raw']
+            self.runs.remove({'basename': basename})
+
+        self.runs.insert_one(entry)
+
+        return self.find_one(basename)
+
+
 class CovisRun:
 
-    def __init__(self, json):
+    def __init__(self, json, collection=None):
+        self.collection = collection
         self.json = json
+
+    @property
+    def basename(self):
+        return self.json["basename"]
 
     @property
     def datetime(self):
@@ -51,43 +96,97 @@ class CovisRun:
     def raw(self):
         return [CovisRaw(p) for p in self.json["raw"]]
 
+    # Check if it already exists
+    def find_raw(self,host,filename):
+        entry = {'host': host, 'filename': filename}
+        f = self.collection.find_one({'basename': self.basename,
+                'raw': {'$eq': entry } } )
 
-re_old_covis_nas = re.compile( r"old-covis-nas\d", re.IGNORECASE)
-#re_covis_nas     = re.compile( r"covis-nas\Z", re.IGNORECASE)
-#re_dmas          = re.compile( r"dmas", re.IGNORECASE)
+        if f:
+            return CovisRaw(f)
+        return False
+
+    def add_raw(self,host,filename):
+        if not hosts.validate_host(host):
+            return False
+
+        if self.find_raw(host,filename):
+            return False
+
+        entry = {'host': host, 'filename': filename}
+
+        if self.collection:
+            self.json = self.collection.find_one_and_update({'basename': self.basename},
+                    {'$addToSet': {'raw': entry}},
+                    return_document=ReturnDocument.AFTER)
+
+        return True
+
+    def drop_raw(self,raw):
+        entry = {'host': raw.host, 'filename': raw.filename}
+
+        if self.collection:
+            print("Attempting to update collection")
+            res = self.collection.find_one_and_update({'basename': self.basename},
+                {'$pull': {'raw': entry}} )
+            print(res)
+
 
 class CovisRaw:
 
-    def __init__(self,raw):
-        self.raw = raw
+    def __init__(self, raw):
+        self.json = raw
+
+    def equal(self,host,filename):
+        return self.host == host and self.filename == filename
 
     @property
     def host(self):
-        return self.raw['host'].upper()
+        return self.json['host'].upper()
 
     @property
     def filename(self):
-        return self.raw['filename']
+        return self.json['filename']
 
     def accessor(self):
-        if re_old_covis_nas.match(self.host):
+        if hosts.is_old_nas(self.host):
             return remote.OldCovisNasAccessor(self)
-        elif self.host == "COVIS-NAS":
-            return None
-        elif self.host == "DMAS":
-            return None
+        elif hosts.is_nas(self.host):
+            return remote.CovisNasAccessor(self)
+        elif hosts.is_dmas(self.host):
+            return remote.DmasAccessor(path=self.filename)
 
     def reader(self):
         return self.accessor().reader()
 
+    def extract(self, workdir):
 
+        root,ext = path.splitext(self.filename)
 
+        if ext == '.7z':
+            command = ["7z", "e",  "-bd", "-y", "-o", workdir, "-si"]
 
-    # def at(self,site):
-    #     re = site_to_re(site)
-    #
-    #     for r in self.raw:
-    #         if re.match(r["host"]):
-    #             return True
-    #
-    #     return False
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        elif ext == '.gz':
+            command = ["tar", "-C", workdir, "-xzvf", "-"]
+
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        elif ext == '.tar':
+            command = ["tar", "-C", workdir, "-xvf", "-"]
+
+            with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+                with self.reader() as data:
+                    shutil.copyfileobj(data, process.stdin)
+
+        else:
+            logging.error("Don't know how to handle extension: %s", ext)
+
+        contents = glob.glob(workdir + "/APLUWCOVIS*/")
+
+        return contents[0]
