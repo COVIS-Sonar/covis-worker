@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import tempfile
 import pathlib
 import gzip
 import shutil
@@ -9,20 +10,28 @@ import os
 from subprocess import Popen,PIPE
 
 from pymongo import MongoClient
+
 from covis_db.db import CovisDB
+import covis_worker.rezip
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('infile', nargs='*',
                     help="Basenames to process")
 
-parser.add_argument('--log', nargs='?', default='WARNING',
+parser.add_argument('--log', nargs='?', default='INFO',
                     help='Logging level')
 
 parser.add_argument('--dbhost', default='localhost', help='Hostname of MongoDB host')
 
-parser.add_argument('--outdir',
-                    default='.', help="Output directory")
+parser.add_argument('--dry-run', dest='dry_run', action='store_true',
+                    help='Do not actually rezip the file')
+
+parser.add_argument('--tempdir', help='Working directory')
+
+parser.add_argument('--desthost', help='')
+
+#parser.add_argument('--outdir', default='.', help="Output directory")
 
 args = parser.parse_args()
 
@@ -36,35 +45,41 @@ if not db:
 
 
 for basename in args.infile:
-    print(basename)
+    logging.info("Looking up basename %s" % basename)
 
     result = db.find(basename=basename)
 
     if not result:
-        print("Unable to find basename %s" % basename)
+        logging.error("Unable to find basename %s" % basename)
         continue
 
-    # Set output filename
+    workdir = args.tempdir
+    if not workdir:
+        workdir = tempfile.TemporaryDirectory().name
 
-    outfile = pathlib.Path(args.outdir, basename+".tar.7z")
+    # Calculate output filename
+    outfile = pathlib.Path(workdir, basename+".tar.7z")
 
+    # Determine which source to use
     raw = result.raw[0]
     print(raw)
 
     accessor = raw.accessor()
-    accessor.hostname="localhost"
-
+    # accessor.hostname = "localhost"
 
     if not accessor:
         print("Unable to get file %s" % basename)
         continue
 
     r = accessor.reader()
-    print(r.info())
+    logging.info(r.info())
 
-    # Remove existing files
+    if args.dry_run:
+        continue
+
+    # Remove existing destination file
     if os.path.isfile(outfile):
-        print("Removing existing file")
+        logging.warning("Removing existing file")
         os.remove(outfile)
 
     command = ["7z", "a", "-si", "-y", outfile]
@@ -72,16 +87,15 @@ for basename in args.infile:
         with gzip.GzipFile(fileobj=r) as data:
             shutil.copyfileobj(data, process.stdin)
 
-    # with gzip.GzipFile(fileobj=f) as gz:
-    #     with open(outfile, 'wb') as out:
-    #         for d in gz.read(256*1024):
-    #             out.write(d)
-
     # Check the results
-    command = ["7z","t",outfile]
+    command = ["7z", "t", outfile]
     child = Popen(command)
     child.wait()
 
+    # Upload
+    if args.desthost:
+        logging.info("Uploading to destination host %s" % args.desthost)
+
     if child.returncode != 0:
-        print("File does not check out...")
+        logging.error("7z test on file %s has non-zero return value" % outfile)
         continue

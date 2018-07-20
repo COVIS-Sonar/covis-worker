@@ -1,6 +1,5 @@
-## This compose is _only used for local testing_
+# Launches all services necessary _for local testing_
 # Data is not persisted
-#
 version: '3'
 
 services:
@@ -11,24 +10,32 @@ services:
     ports:
       - "27017:27017"
 
-  minio_old_covis_nas:
-    image: 'minio/minio'
+  rabbitmq:
+    image: 'bitnami/rabbitmq:3.7'
+    labels:
+      kompose.service.type: nodeport
+    ports:
+      - '4369:4369'
+      - '5672:5672'
+      - '25672:25672'
+      - '15672:15672'
+
+  minio-old-nas1:
+    image: 'covis-worker/covis_test_minio'
     ports:
       - "9001:9000"
+    volumes:
+      - ./covis-test-data/old-covis-nas1/:/data
     environment:
      - MINIO_ACCESS_KEY=covis
      - MINIO_SECRET_KEY=coviscovis
-    command: server /data
-    volumes:
-      - ./test_data/old-covis-nas/:/data
 
-  minio_covis_nas:
-    image: 'minio/minio'
+  minio-new-nas:
+    image: 'covis-worker/covis_test_minio'
     ports:
       - "9000:9000"
+    volumes:
+      - ./covis-test-data/new-covis-nas/:/data
     environment:
      - MINIO_ACCESS_KEY=covis
      - MINIO_SECRET_KEY=coviscovis
-    command: server /data
-    volumes:
-      - ./test_data/new-covis-nas/:/data
