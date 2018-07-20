@@ -16,11 +16,11 @@
 #
 
 # If command starts with an option, prepend minio.
-if [ "${1}" != "minio" ]; then
-    if [ -n "${1}" ]; then
-        set -- minio "$@"
-    fi
-fi
+# if [ "${1}" != "minio" ]; then
+#     if [ -n "${1}" ]; then
+#         set -- minio "$@"
+#     fi
+# fi
 
 ## Look for docker secrets in default documented location.
 docker_secrets_env() {

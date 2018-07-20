@@ -14,16 +14,16 @@ push: build
 	docker push ${TAG}
 
 process_local: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 process_local_job: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 process: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 process_job: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/process_raw.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 
 
