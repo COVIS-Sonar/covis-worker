@@ -6,6 +6,5 @@ dump.json
 
 .env
 
-seed_data/*.bson
 
 docker.env
