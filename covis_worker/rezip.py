@@ -105,6 +105,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             return False
 
         dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / misc.make_basename(outfile)
+        dest_filename = dest_filename.with_suffix('.7z')
         logging.info("Dest filename: %s" % str(dest_filename))
 
         logging.info("Uploading to destination host %s" % dest_host)
