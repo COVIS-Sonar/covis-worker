@@ -1,4 +1,4 @@
-FROM amarburg/covis-postprocess:latest
+FROM amarburg/covis-postprocess:R2018a
 
 RUN apt-get update && apt install -yq --no-install-recommends \
                             libarchive-dev netcat p7zip-full && \
