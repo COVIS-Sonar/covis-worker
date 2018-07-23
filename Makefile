@@ -10,6 +10,10 @@ TAG=amarburg/covis-worker:latest
 build:
 	docker build -t ${TAG} .
 
+force:
+	docker build --no-cache -t ${TAG} .
+
+
 push: build
 	docker push ${TAG}
 
