@@ -2,7 +2,7 @@
 import pytest
 
 # These basenames are in the test data set
-good_basenames = ["APLUWCOVISMBSONAR001_20100930T153416.845Z-DIFFUSE"]
+good_basenames = ["APLUWCOVISMBSONAR001_20101001T042617.821Z-DIFFUSE"]
 
 # These basenames are valid but not in the test data set
 bad_basenames = ["APLUWCOVISMBSONAR001_20140226T090039.177Z-IMAGING"]
@@ -32,8 +32,7 @@ def test_covis_add(covisdb):
     assert run
 
     raw = run.raw[0]
-
-    assert(raw)
+    assert raw
 
     assert run.find_raw( raw.host, raw.filename )
     assert run.find_raw('COVIS-NAS', raw.filename ) == False

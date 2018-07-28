@@ -10,6 +10,7 @@ from decouple import config
 import shutil
 import subprocess
 import glob
+from pathlib import Path
 
 from os import path
 from . import remote,hosts
@@ -31,15 +32,19 @@ class CovisDB:
         self.db = self.client[config('MONGODB_DB', default='covis')]
         self.runs = self.db[config('MONGODB_RUNS_TABLE', default='runs')]
 
-    def find_one(self, basename):
+    def find(self, basename):
         r = self.runs.find_one({'basename': basename})
         if r:
             return CovisRun(r,collection=self.runs)
         else:
             return None
 
+    def insert_run(self, run):
+        self.runs.insert_one(run.json)
+        return self.find(run.basename)
+
     def add_run(self, basename, update=False):
-        existing = self.find_one(basename)
+        existing = self.find(basename)
 
         if existing:
             if not update:
@@ -48,6 +53,18 @@ class CovisDB:
 
             logging.info("Basename %s exists, forcing update" % basename)
 
+        entry = self.make_run(basename)
+
+        # Preserve entries from existing
+        if existing:
+            entry['raw'] = existing['raw']
+            self.runs.remove({'basename': basename})
+
+        self.runs.insert_one(entry)
+        return self.find(basename)
+
+
+    def make_run(self,basename):
         ## Break filename apart
         parts = re.split(r'[\_\-]', basename)
 
@@ -55,7 +72,7 @@ class CovisDB:
         mode = parts[2]
 
         # Insert validation here
-        entry = { 'basename': basename,
+        entry = { 'basename': str(basename),
                 'datetime': date,
                 'mode': mode }
 
@@ -64,14 +81,8 @@ class CovisDB:
         else:
                 entry['site'] = 'Ashes'
 
-        # Preserve entries from existing
-        if existing:
-            entry['raw'] = existing['raw']
-            self.runs.remove({'basename': basename})
+        return CovisRun(entry)
 
-        self.runs.insert_one(entry)
-
-        return self.find_one(basename)
 
 
 class CovisRun:
@@ -99,28 +110,41 @@ class CovisRun:
     # Check if it already exists
     def find_raw(self,host,filename):
         entry = {'host': host, 'filename': filename}
-        f = self.collection.find_one({'basename': self.basename,
-                'raw': {'$eq': entry } } )
 
-        if f:
-            return CovisRaw(f)
+        if self.collection:
+            f = self.collection.find_one({'basename': self.basename,
+                                            'raw': {'$eq': entry } } )
+
+            if f:
+                return CovisRaw(f)
         return False
 
-    def add_raw(self,host,filename):
+    def insert_raw(self,raw):
+        if self.collection:
+            self.json = self.collection.find_one_and_update({'basename': self.basename},
+                    {'$addToSet': {'raw': raw.json}},
+                    return_document=ReturnDocument.AFTER)
+
+    def add_raw(self,host,filename=None,make_filename=False,suffix='.7z'):
         if not hosts.validate_host(host):
             return False
 
-        if self.find_raw(host,filename):
+        if make_filename:
+            filename = Path(self.datetime.strftime("%Y/%m/%d/")) / self.basename
+            filename = filename.with_suffix(suffix)
+
+        raw = self.find_raw(host,filename)
+        if raw:
             return False
 
-        entry = {'host': host, 'filename': filename}
+        entry = {'host': host, 'filename': str(filename)}
 
         if self.collection:
             self.json = self.collection.find_one_and_update({'basename': self.basename},
                     {'$addToSet': {'raw': entry}},
                     return_document=ReturnDocument.AFTER)
 
-        return True
+        return CovisRaw(entry)
 
     def drop_raw(self,raw):
         entry = {'host': raw.host, 'filename': raw.filename}

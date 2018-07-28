@@ -1,0 +1,73 @@
+[
+{
+  "_id": {
+    "$oid": "5b5115334af0aa02915597e0"
+  },
+  "basename": "APLUWCOVISMBSONAR001_20101001T042617.821Z-DIFFUSE",
+  "raw": [
+    {
+      "host": "DMAS",
+      "filename": "APLUWCOVISMBSONAR001_20101001T042617.821Z-DIFFUSE.tar"
+    }
+  ],
+  "datetime": {
+    "$date": 1285907177821
+  },
+  "mode": "DIFFUSE",
+  "site": "Endeavour"
+}
+,
+{
+  "_id": {
+    "$oid": "5b5115334af0aa02915597e1"
+  },
+  "basename": "APLUWCOVISMBSONAR001_20101001T080017.393Z-IMAGING",
+  "raw": [
+    {
+      "host": "DMAS",
+      "filename": "APLUWCOVISMBSONAR001_20101001T080017.393Z-IMAGING.tar"
+    }
+  ],
+  "datetime": {
+    "$date": 1285920017393
+  },
+  "mode": "IMAGING",
+  "site": "Endeavour"
+}
+,
+{
+  "_id": {
+    "$oid": "5b5115324af0aa028ec2f4be"
+  },
+  "basename": "APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING",
+  "raw": [
+    {
+      "host": "OLD-COVIS-NAS1",
+      "filename": "2011/10/01/APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING.tar.gz"
+    }
+  ],
+  "datetime": {
+    "$date": 1317503277973
+  },
+  "mode": "IMAGING",
+  "site": "Endeavour"
+}
+,
+{
+  "_id": {
+    "$oid": "5b5115324af0aa028ec2f4bf"
+  },
+  "basename": "APLUWCOVISMBSONAR001_20111001T215909.172Z-DIFFUSE",
+  "raw": [
+    {
+      "host": "OLD-COVIS-NAS1",
+      "filename": "2011/10/01/APLUWCOVISMBSONAR001_20111001T215909.172Z-DIFFUSE.tar.gz"
+    }
+  ],
+  "datetime": {
+    "$date": 1317506349172
+  },
+  "mode": "DIFFUSE",
+  "site": "Endeavour"
+}
+]

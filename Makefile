@@ -31,10 +31,27 @@ process_job: build
 
 
 
-## Assumes the local
 ## Check that test/data/{new,old}-covis-nas exist
-test: reset_test_db
-	python3 -m pytest test/
+test:
+	pytest
+
+## Temporary SSH keys for test SFTP server in Docker-Compose and pytest
+test_ssh_keys: tmp/ssh_keys/id_rsa.pub
+
+tmp/ssh_keys/id_rsa.pub:
+	mkdir -p tmp/ssh_keys/
+	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
+
+## Sftp into the sftp test server created by docker-compose.yml
+sftp:
+	sftp -P 2222 -i tmp/ssh_keys/id_rsa covis@localhost
+
+.PHONY: test_ssh_keys
+
+
+
 
 
 # Build local image
