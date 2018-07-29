@@ -24,27 +24,21 @@ import getpass
 
 parser = argparse.ArgumentParser()
 
-# parser.add_argument('--config', default=config('PROCESS_CONFIG',""),
-#                     help="Process.json files.  Can be a path, URL, or '-' for stdin")
-
 parser.add_argument('--log', metavar='log', nargs='?',
-                    default=config('LOG_LEVEL', default='WARNING'),
+                    default=config('LOG_LEVEL', default='DEBUG'),
                     help='Logging level')
-#
-# parser.add_argument('--job', metavar='log', nargs='?',
-#                     help='Job name')
-#
-# parser.add_argument('--count', default=0, type=int,
-#                     metavar='N',
-#                     help="Only queue N entries (used for debugging)")
 
 parser.add_argument('--force', dest='force', action='store_true')
 
 parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
-# parser.add_argument("--run-local", dest='runlocal', action='store_true')
+parser.add_argument('--privkey',
+                    default=config('SFTP_PRIVKEY', default=None),
+                    nargs='?')
 
-parser.add_argument('--privkey', nargs='?')
+parser.add_argument('--privkey-password', dest="privkeypassword",
+                    default=config('SFTP_PRIVKEY_PASSWORD', default=""),
+                    nargs='?')
 
 parser.add_argument('sftpurl', action='store')
 
@@ -59,6 +53,10 @@ srcurl = urlparse(args.sftpurl)
 username = srcurl.username if srcurl.username else getpass.getuser()
 port = srcurl.port if srcurl.port else 22
 
+if not args.privkey:
+    logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
+    exit()
+
 logging.info("Connecting to %s:%d as %s with privkey %s" % (srcurl.hostname, port, username,args.privkey))
 
 client = SSHClient()
@@ -66,7 +64,7 @@ client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
 client.connect(srcurl.hostname,
                 username=username,
                 key_filename=args.privkey,
-                passphrase="",
+                passphrase=args.privkeypassword,
                 port=port,
                 allow_agent=True)
 
