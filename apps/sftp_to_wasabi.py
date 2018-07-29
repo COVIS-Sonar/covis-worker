@@ -28,6 +28,7 @@ parser.add_argument('--log', metavar='log', nargs='?',
                     default=config('LOG_LEVEL', default='DEBUG'),
                     help='Logging level')
 
+parser.add_argument('--quiet', action='store_true')
 parser.add_argument('--force', dest='force', action='store_true')
 
 parser.add_argument('--dry-run', dest='dryrun', action='store_true')
@@ -137,7 +138,8 @@ for remote_file in sftp.listdir():
         bucket.upload_fileobj(sftpfile, remote_file)
 
     out_msgs.append("Uploaded %s" % remote_file)
-    print("Uploaded %s" % remote_file)
+    if not args.quiet:
+      print("Uploaded %s" % remote_file)
 
 client.close()
 
