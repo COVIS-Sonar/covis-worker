@@ -5,7 +5,7 @@ RUN apt-get update && apt install -yq --no-install-recommends \
       rm -rf /var/lib/apt/lists/*
 
 ## Install dependencies by hand so they get cached by Docker!
-RUN pip3 install celery flower minio pymongo libarchive python-decouple requests
+RUN pip3 install celery flower minio pymongo libarchive python-decouple requests boto3
 
 # Install the local python packages
 WORKDIR /code/covis-worker

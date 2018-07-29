@@ -40,7 +40,7 @@ class CovisDB:
             return None
 
     def insert_run(self, run):
-        self.runs.insert_one(run.json)
+        self.runs.replace_one({'basename':run.basename}, run.json, upsert=True)
         return self.find(run.basename)
 
     def add_run(self, basename, update=False):

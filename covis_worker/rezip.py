@@ -10,8 +10,12 @@ import subprocess
 import gzip
 import shutil
 import tarfile
+from urllib.parse import urlparse
+from decouple import config
 
 import hashlib as hash
+
+from paramiko.client import SSHClient,AutoAddPolicy
 
 from covis_db import hosts,db,misc
 
@@ -123,6 +127,113 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         logging.info("Upload successful, updating DB")
         if not run.add_raw(raw.host, raw.filename):
             logging.info("Error inserting into db...")
+
+
+
+@app.task
+def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None):
+    print("Retrieving from SFTP site %s and storing to %s" % (sftp_url, dest_host))
+
+    dbclient = db.CovisDB()
+
+    #sftp_url must be complete (with username and port)
+    srcurl = urlparse(sftp_url)
+    print(srcurl)
+
+    srcpath = Path(srcurl.path)
+    filename = srcpath.name
+    basename = misc.make_basename(srcpath)
+
+    logging.info("Connecting to %s:%d as %s" % (srcurl.hostname, srcurl.port, srcurl.username))
+
+    client = SSHClient()
+    client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
+    client.connect(srcurl.hostname,
+                    username=srcurl.username,
+                    key_filename=config("SFTP_PRIVKEY_FILE"),
+                    passphrase=config("PRIVKEY_PASSPHRASE",""),
+                    port=srcurl.port,
+                    allow_agent=True)
+
+    sftp = client.open_sftp()
+
+    with tempfile.TemporaryDirectory(dir=tempdir) as workdir:
+        destfile = Path(workdir) / filename
+        logging.info("Retrieving to temporary file %s" % destfile)
+
+        sftp.get( srcurl.path, str(destfile) )
+
+        # Calculate output filename
+        # TODO make more flexible to different dest_fmts
+        outfile = (Path(workdir) / basename).with_suffix(".7z")
+
+        # Remove existing destination file
+        if os.path.isfile(str(outfile)):
+            logging.warning("Removing existing file")
+            os.remove(outfile)
+
+        decompressed_path = workdir
+        mode="r"
+
+        ext = destfile.suffix
+        if ext == '.gz':
+            mode="r:gz"
+
+        ## Forces decode as gz file for now
+        with tarfile.open(str(destfile),mode=mode) as tf:
+            tf.extractall(path=decompressed_path)
+            mem = tf.getmembers()
+
+            ## Generate metainfo about members
+            contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem if ti.isfile()]
+
+            ## Recompress
+            files = [str(n.name) for n in mem]
+
+            #"-mx=9",
+            command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
+            process = subprocess.run(command,cwd=str(decompressed_path))
+
+        logging.info(contents)
+
+        ## Assume SFTP imports are new records
+        # Check the results
+        command = ["7z", "l", "-bd", str(outfile)]
+        child = subprocess.Popen(command)
+        child.wait()
+
+        if child.returncode != 0:
+            logging.error("7z test on file %s has non-zero return value" % str(outfile))
+            return False
+
+        run = dbclient.make_run(basename=basename)
+        raw = run.add_raw(dest_host, make_filename=True)
+        accessor = raw.accessor()
+
+        # dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / basename.with_suffix('.7z')
+        # logging.info("Dest filename: %s" % str(dest_filename))
+        # logging.info("Uploading to destination host %s" % dest_host)
+
+        if not accessor:
+            logging.error("Unable to get accessor for %s" % dest_host)
+
+        statinfo = os.stat(str(outfile))
+        print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
+        with open(str(outfile), 'rb') as zfile:
+            accessor.write(zfile,statinfo.st_size)
+
+        logging.info("Upload successful, updating DB")
+        run = dbclient.insert_run(run)
+        if not run:
+            logging.info("Error inserting into db...")
+
+        ## Ugliness
+        if(contents):
+            raw.json["contents"] = contents
+
+        run.insert_raw(raw)
+
+
 
 
 

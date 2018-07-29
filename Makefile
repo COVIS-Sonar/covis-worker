@@ -30,6 +30,10 @@ process_job: build
 	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 
+sftp_test: build
+		docker run --rm -it --env-file docker.env -e SFTP_PRIVKEY_FILE=/tmp/sshkeys/id_rsa -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro --network covis-worker_default --entrypoint python3 ${TAG} apps/import_sftp.py  --run-local --log INFO --force sftp://sftp:22/
+
+
 
 ## Check that test/data/{new,old}-covis-nas exist
 test:

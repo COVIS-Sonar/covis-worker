@@ -7,11 +7,14 @@ import argparse
 import logging
 import shutil
 
+import boto3
+from botocore.exceptions import ClientError
+
 from pymongo import MongoClient
 # from bson import json_util
 from decouple import config
 from covis_db import db, hosts, misc
-from covis_worker import rezip
+# from datetime import datetime
 
 from paramiko.client import SSHClient,AutoAddPolicy
 from urllib.parse import urlparse
@@ -23,13 +26,6 @@ parser = argparse.ArgumentParser()
 
 # parser.add_argument('--config', default=config('PROCESS_CONFIG',""),
 #                     help="Process.json files.  Can be a path, URL, or '-' for stdin")
-
-parser.add_argument('--dbhost', default=config('MONGODB_URL',
-                    default="mongodb://localhost/"),
-                    help='URL (mongodb://hostname/) of MongoDB host')
-
-parser.add_argument('--dest-host', dest="desthost", default="COVIS-NAS",
-                    help='Destination host')
 
 parser.add_argument('--log', metavar='log', nargs='?',
                     default=config('LOG_LEVEL', default='INFO'),
@@ -46,9 +42,9 @@ parser.add_argument('--force', dest='force', action='store_true')
 
 parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
-parser.add_argument("--run-local", dest='runlocal', action='store_true')
+# parser.add_argument("--run-local", dest='runlocal', action='store_true')
 
-parser.add_argument('--privkey', default=config("SFTP_PRIVKEY_FILE",""), nargs='?')
+parser.add_argument('--privkey', nargs='?')
 
 parser.add_argument('sftpurl', action='store')
 
@@ -59,8 +55,6 @@ args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
 
 ## Open db client
-db = db.CovisDB(MongoClient(args.dbhost))
-
 srcurl = urlparse(args.sftpurl)
 print(srcurl)
 username = srcurl.username if srcurl.username else getpass.getuser()
@@ -73,14 +67,23 @@ client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
 client.connect(srcurl.hostname,
                 username=username,
                 key_filename=args.privkey,
-                passphrase=config("PRIVKEY_PASSPHRASE",""),
+                passphrase="",
                 port=port,
                 allow_agent=True)
 
 sftp = client.open_sftp()
-
 logging.info("Changing to path %s" % srcurl.path)
 sftp.chdir(srcurl.path)
+
+## Meanwhile, setup the S3 connection as well
+
+s3 = boto3.resource('s3',
+                    endpoint_url = 'https://s3.us-west-1.wasabisys.com',
+                    aws_access_key_id = config("S3_ACCESS_KEY"),
+                    aws_secret_access_key = config("S3_SECRET_KEY"))
+
+bucket_name = "covis-raw"
+bucket = s3.Bucket(bucket_name)
 
 for remote_file in sftp.listdir():
 
@@ -90,54 +93,61 @@ for remote_file in sftp.listdir():
         logging.info("   ... not a COVIS raw file, skipping...")
         continue
 
-    basename = misc.make_basename(remote_file)
-    run = db.find(basename)
 
-    if run and not args.force:
-        logging.info("Basename %s already exists" % basename)
-
-        ## Todo.  Handle
-
+    try:
+        s3.Object(bucket_name, str(remote_file)).load()
+    except ClientError as e:
+        if int(e.response['Error']['Code']) == 404:
+            ## Object does not exist
+            pass
+        else:
+            ## Some other error
+            raise
     else:
-        logging.info("Basename %s does not exist, uploading to %s" % (basename, args.desthost))
-
-        if args.dryrun:
-            logging.info(" .... dry run, skipping")
+        print("The object exist.")
+        if not args.force:
             continue
 
-        if args.runlocal:
-            job = rezip.rezip_from_sftp(srcurl.geturl() + remote_file,args.desthost)
-        else:
-            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + remote_file,args.desthost)
 
-        ## Attempt to add to dest
-        #
-        # logging.info("Uploading to destination host %s" % args.desthost)
-        #
-        # run = db.make_run(basename=basename)
-        # raw = run.add_raw(args.desthost, make_filename=True)
-        # accessor = raw.accessor()
-        #
-        # if not accessor:
-        #     logging.error("Unable to get accessor for %s" % args.desthost)
-        #
-        # with sftp.open(remote_file) as sftpfile:
-        #
-        #     statinfo = sftpfile.stat()
-        #
-        #     print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
-        #     accessor.write(sftpfile, statinfo.st_size)
-        #
-        #
-        # logging.info("Upload successful, updating DB")
-        #
-        # run = db.insert_run(run)
-        # if not run:
-        #     logging.info("Error inserting into db...")
-        #
-        # ## Ugliness
-        # run.insert_raw(raw)
 
+    logging.info("File %s does not exist, uploading ..." % remote_file )
+
+    if args.dryrun:
+        logging.info(" .... dry run, skipping")
+        continue
+
+
+
+    #     ## Attempt to add to dest
+    #
+    #     logging.info("Uploading to destination host %s" % args.desthost)
+    #
+    #     run = db.make_run(basename=basename)
+    #     raw = run.add_raw(args.desthost, make_filename=True)
+    #     accessor = raw.accessor()
+    #
+    #     if not accessor:
+    #         logging.error("Unable to get accessor for %s" % args.desthost)
+
+    with sftp.open(remote_file) as sftpfile:
+
+        statinfo = sftpfile.stat()
+
+        print("Writing %d bytes to S3 as \"%s\"" % (statinfo.st_size,remote_file))
+        bucket.upload_fileobj(sftpfile, remote_file)
+
+
+    #
+    #
+    #     logging.info("Upload successful, updating DB")
+    #
+    #     run = db.insert_run(run)
+    #     if not run:
+    #         logging.info("Error inserting into db...")
+    #
+    #     ## Ugliness
+    #     run.insert_raw(raw)
+    #
 
 
 
