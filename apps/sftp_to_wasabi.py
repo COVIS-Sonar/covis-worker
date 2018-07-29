@@ -137,8 +137,7 @@ for remote_file in sftp.listdir():
         bucket.upload_fileobj(sftpfile, remote_file)
 
     out_msgs.append("Uploaded %s" % remote_file)
-    logging.warning("Uploaded %s" % remote_file)
-
+    print("Uploaded %s" % remote_file)
 
 client.close()
 
