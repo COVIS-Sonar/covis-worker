@@ -48,7 +48,7 @@ parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
 parser.add_argument("--run-local", dest='runlocal', action='store_true')
 
-parser.add_argument('--privkey', default=config("SFTP_PRIVKEY_FILE",""), nargs='?')
+parser.add_argument('--privkey', default=config("SFTP_PRIVKEY",default=""), nargs='?')
 
 parser.add_argument('sftpurl', action='store')
 
@@ -57,6 +57,11 @@ parser.add_argument('sftpurl', action='store')
 
 args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
+
+#-- Validate inputs
+if not args.privkey:
+    logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
+    exit()
 
 ## Open db client
 db = db.CovisDB(MongoClient(args.dbhost))
@@ -106,9 +111,11 @@ for remote_file in sftp.listdir():
             continue
 
         if args.runlocal:
-            job = rezip.rezip_from_sftp(srcurl.geturl() + remote_file,args.desthost)
+            job = rezip.rezip_from_sftp(srcurl.geturl() + remote_file,args.desthost,
+                                        privkey=args.privkey)
         else:
-            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + remote_file,args.desthost)
+            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + remote_file,args.desthost,
+                                        privkey=args.privkey)
 
         ## Attempt to add to dest
         #

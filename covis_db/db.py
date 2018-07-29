@@ -68,7 +68,15 @@ class CovisDB:
         ## Break filename apart
         parts = re.split(r'[\_\-]', basename)
 
-        date = datetime.datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
+        # Todo:  More validation of parts
+
+        # full timestamp with milliseconds
+        match = re.match(r"\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}\.\d+Z", parts[1])
+        if match:
+            date = datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
+        else:
+            date = datetime.datetime.strptime(parts[1], "%Y%m%dT%H%M%S")
+
         mode = parts[2]
 
         # Insert validation here

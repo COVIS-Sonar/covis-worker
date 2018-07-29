@@ -24,7 +24,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
     print("Rezipping %s and storing to %s" % (basename, dest_host))
 
     client = db.CovisDB()
-    run = client.find_one(basename)
+    run = client.find(basename)
 
     if not run:
         # What's the canonical way to report errors
@@ -129,10 +129,15 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
 
 ## Repeats above quite a bit.   Lots of potential for reducing the DRY...
-
 @app.task
-def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None):
+def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
+                    privkey=config("SFTP_PRIVKEY",""),
+                    privkey_password=config("PRIVKEY_PASSPHRASE","")):
     print("Retrieving from SFTP site %s and storing to %s" % (sftp_url, dest_host))
+
+    if not privkey:
+        logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
+        return
 
     dbclient = db.CovisDB()
 
@@ -150,8 +155,8 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None):
     client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
     client.connect(srcurl.hostname,
                     username=srcurl.username,
-                    key_filename=config("SFTP_PRIVKEY_FILE"),
-                    passphrase=config("PRIVKEY_PASSPHRASE",""),
+                    key_filename=privkey,
+                    passphrase=privkey_password,
                     port=srcurl.port,
                     allow_agent=True)
 
