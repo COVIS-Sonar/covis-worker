@@ -14,11 +14,15 @@ from pymongo import MongoClient
 # from bson import json_util
 from decouple import config
 from covis_db import db, hosts, misc
-# from datetime import datetime
+from datetime import datetime
 
 from paramiko.client import SSHClient,AutoAddPolicy
 from urllib.parse import urlparse
 import getpass
+
+import sendgrid
+import os
+from sendgrid.helpers.mail import *
 
 #from covis_worker import process
 
@@ -28,7 +32,7 @@ parser = argparse.ArgumentParser()
 #                     help="Process.json files.  Can be a path, URL, or '-' for stdin")
 
 parser.add_argument('--log', metavar='log', nargs='?',
-                    default=config('LOG_LEVEL', default='INFO'),
+                    default=config('LOG_LEVEL', default='WARNING'),
                     help='Logging level')
 #
 # parser.add_argument('--job', metavar='log', nargs='?',
@@ -56,11 +60,10 @@ logging.basicConfig( level=args.log.upper() )
 
 ## Open db client
 srcurl = urlparse(args.sftpurl)
-print(srcurl)
 username = srcurl.username if srcurl.username else getpass.getuser()
 port = srcurl.port if srcurl.port else 22
 
-logging.info("Connecting to %s:%d as %s" % (srcurl.hostname, port, username))
+logging.info("Connecting to %s:%d as %s with privkey %s" % (srcurl.hostname, port, username,args.privkey))
 
 client = SSHClient()
 client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
@@ -85,6 +88,8 @@ s3 = boto3.resource('s3',
 bucket_name = "covis-raw"
 bucket = s3.Bucket(bucket_name)
 
+out_msgs = []
+
 for remote_file in sftp.listdir():
 
     logging.info("Considering remote file %s" % remote_file)
@@ -104,9 +109,12 @@ for remote_file in sftp.listdir():
             ## Some other error
             raise
     else:
-        print("The object exist.")
+        logging.info("The object %s exists in the S3 bucket" % remote_file)
         if not args.force:
             continue
+
+        logging.info("   ... but --force specified, so doing it anyway")
+
 
 
 
@@ -115,8 +123,6 @@ for remote_file in sftp.listdir():
     if args.dryrun:
         logging.info(" .... dry run, skipping")
         continue
-
-
 
     #     ## Attempt to add to dest
     #
@@ -133,8 +139,24 @@ for remote_file in sftp.listdir():
 
         statinfo = sftpfile.stat()
 
-        print("Writing %d bytes to S3 as \"%s\"" % (statinfo.st_size,remote_file))
+        logging.info("Writing %d bytes to S3 as \"%s\"" % (statinfo.st_size,remote_file))
         bucket.upload_fileobj(sftpfile, remote_file)
+
+    out_msgs.append("Uploaded %s" % remote_file)
+    logging.warning("Uploaded %s" % remote_file)
+
+
+if len(out_msgs) > 0:
+    ## Report results
+    sg_key = config("SENDGRID_API_KEY",None)
+    if sg_key:
+        sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
+        from_email = Email("test@example.com")
+        to_email = Email("amarburg@uw.edu")
+        subject = "sftp_to_wasabi %s" % datetime.now().strftime("%c")
+        content = Content("text/plain", "\n".join(out_msgs))
+        mail = Mail(from_email, subject, to_email, content )
+        response = sg.client.mail.send.post(request_body=mail.get())
 
 
     #

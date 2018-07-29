@@ -9,5 +9,6 @@ setup(name='covis_worker',
       author_email='amarburg@apl.washington.edu',
       url='',
       packages=['covis_db','covis_worker'],
-      install_requires=['minio','pymongo','libarchive','python-decouple','paramiko']
+      install_requires=['minio','pymongo','libarchive',
+                        'python-decouple','paramiko','boto3','sendgrid']
      )
