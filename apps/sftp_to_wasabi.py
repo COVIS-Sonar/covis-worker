@@ -20,10 +20,6 @@ from paramiko.client import SSHClient,AutoAddPolicy
 from urllib.parse import urlparse
 import getpass
 
-import sendgrid
-import os
-from sendgrid.helpers.mail import *
-
 #from covis_worker import process
 
 parser = argparse.ArgumentParser()
@@ -146,17 +142,41 @@ for remote_file in sftp.listdir():
     logging.warning("Uploaded %s" % remote_file)
 
 
+client.close()
+
 if len(out_msgs) > 0:
     ## Report results
+
+    subject = "sftp_to_wasabi %s" % datetime.now().strftime("%c")
+
+
     sg_key = config("SENDGRID_API_KEY",None)
     if sg_key:
+        import sendgrid
+        from sendgrid.helpers.mail import *
+
         sg = sendgrid.SendGridAPIClient(apikey=os.environ.get('SENDGRID_API_KEY'))
-        from_email = Email("test@example.com")
+        from_email = Email("amarburg@uw.edu")
         to_email = Email("amarburg@uw.edu")
-        subject = "sftp_to_wasabi %s" % datetime.now().strftime("%c")
         content = Content("text/plain", "\n".join(out_msgs))
         mail = Mail(from_email, subject, to_email, content )
         response = sg.client.mail.send.post(request_body=mail.get())
+
+    mg_key = config("MAILGUN_API_KEY",None)
+    if mg_key:
+        import requests
+
+        domain = "sandboxc489483675804e3dbbc362207206219c.mailgun.org"
+
+        response = requests.post(
+            "https://api.mailgun.net/v3/%s/messages" % domain,
+            auth=("api", mg_key),
+            data={"from": "amarburg@uw.edu",
+                  "to": ["amarburg@uw.edu"],
+                  "subject": subject,
+                  "text": "\n".join(out_msgs)})
+
+        logging.debug(response)
 
 
     #
