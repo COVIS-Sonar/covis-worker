@@ -1,69 +1,41 @@
 
-
-
 TEST_DATA=covis-test-data/
 
 ## Docker-related tasks
+TEST_TAG=amarburg/covis-worker:test
+PROD_TAG=amarburg/covis-worker:prod
 
-TAG=amarburg/covis-worker:latest
 
+help:
+	@echo "make build       Build test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make force       Build test covis-worker docker image \"${TEST_TAG}\" with --no-cache"
+	@echo "make push        Push test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make prod        Label current test as \"prod\" and push to \"${PROD_TAG}\""
+
+
+
+## Jobs related to building __test__ image
 build:
-	docker build -t ${TAG} .
+	docker build -t ${TEST_TAG} .
 
 force:
-	docker build --no-cache -t ${TAG} .
-
+	docker build --no-cache -t ${TEST_TAG} .
 
 push: build
-	docker push ${TAG}
+	docker push ${TEST_TAG}
 
-process_local: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+## Jobs related to building __prod__ image
+prod: build
+	docker tag ${TEST_TAG} ${PROD_TAG}
+	docker push ${PROD_TAG}
 
-process_local_job: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
-
-process: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
-
-process_job: build
-	docker run --rm -it --env-file docker.env --network covis_default --entrypoint python3 ${TAG} apps/queue_postprocess.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
-
-
-sftp_test: build
-		docker run --rm -it --env-file docker.env -e SFTP_PRIVKEY_FILE=/tmp/sshkeys/id_rsa -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro --network covis-worker_default --entrypoint python3 ${TAG} apps/import_sftp.py  --run-local --log INFO --force sftp://sftp:22/
-
-
-
-## Check that test/data/{new,old}-covis-nas exist
-test:
+## Run pytest
+test: test_up reset_test_db
 	pytest
 
-## Temporary SSH keys for test SFTP server in Docker-Compose and pytest
-test_ssh_keys: tmp/ssh_keys/id_rsa.pub
-
-tmp/ssh_keys/id_rsa.pub:
-	mkdir -p tmp/ssh_keys/
-	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
-
-## Sftp into the sftp test server created by docker-compose.yml
-sftp:
-	sftp -P 2222 -i tmp/ssh_keys/id_rsa covis@localhost
-
-.PHONY: test_ssh_keys
-
-
-
-
-
-# Build local image
-# test_build:
-# 	docker build -t amarburg/covis-worker:test -f docker_test_images/test_image/Dockerfile .
-
-drone: build
-	drone exec
+# -V drops anonymous volumes so mongodb data isn't persisted
+up:
+	docker-compose -p covis up  -V
 
 ## The services in docker_compose.yml must exist for testing
 drop_test_db:
@@ -80,6 +52,54 @@ reset_test_db: ${TEST_DATA}/test_db.bson
 	mongorestore -d covis -c runs --drop --dir=- < $<
 
 
+## Run sample jobs against local test_up network
+DOCKER_NETWORK=covis_default
+DOCKER_RUN=docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3
+
+# Attach a test worker to the covis_Default test network ... for use with non-"local"
+# jobs below
+test_worker: build up
+	docker run --rm -it --env-file docker.env --network covis_default	${TEST_TAG}
+
+postprocess_local: build
+	${DOCKER_RUN} ${TEST_TAG} apps/queue_postprocess.py --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+postprocess: build
+	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+postprocess_local_job: build
+	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+postprocess_job: build
+	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+
+## Use test docker image to import (and potentially rezip) files
+## from the test SFTP site
+test_sftp_import: build test_ssh_keys
+		${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro \
+							${TEST_TAG} apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+
+test_rezip_local: build reset_test_db
+	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro \
+						${TEST_TAG} apps/queue_rezip.py  --run-local --log INFO --skip-dmas
+
+
+
+## Generate SSH keys for test SFTP server in Docker-Compose and pytest
+test_ssh_keys: tmp/ssh_keys/id_rsa.pub
+
+tmp/ssh_keys/id_rsa.pub:
+	mkdir -p tmp/ssh_keys/
+	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
+
+## Sftp into the sftp test server created by docker-compose.yml
+sftp:
+	sftp -P 2222 -i tmp/ssh_keys/id_rsa covis@localhost
+
+.PHONY: test_ssh_keys
+
 
 ## Builds the large db
 # bootstrap_large_db: test/data/covis_dmas.json
@@ -92,24 +112,19 @@ reset_test_db: ${TEST_DATA}/test_db.bson
 # reset_large_db: test/data/large_db_dump.bson
 # 	mongorestore -d covis -c runs --drop --dir=- < $^
 
-
-.PHONY: drop_test_db reset_test_db
-
+.PHONY: test test_up drop_test_db reset_test_db
 
 
-## Targets that relate to running the worker
-
-docker_worker: build
-	docker run --rm -it --env-file docker.env --network covis_default	${TAG}
-
-worker:
-	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
+#---- Targets designed to be run _INSIDE THE DOCKER CONTAINER_ ----
 
 ## Use the ENV variable preferentially, otherwise here's a default
 CELERY_BROKER ?= amqp://user:bitnami@localhost
 
 flower:
 	celery flower -A covis_worker --broker=${CELERY_BROKER}
+
+worker:
+	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
 
 
 
@@ -148,7 +163,7 @@ import_seed_data: seed_data.bson
 .PHONY: impart_dmas import_covis_nas import_seed_data
 
 
-# Dump mongodb to JSON
+# Dump mongodb to a JSON test file
 dump:
 	apps/dump_mongo.py > dump.json
 
@@ -158,6 +173,6 @@ backup:
 restore:
 	mongorestore mongodb.backup
 
-.PHONY:  backup restore dump \
-			import_test test get_test_data build drone build push \
+.PHONY:  help backup restore dump \
+			import_test get_test_data build drone build push \
 			docker_process_test
