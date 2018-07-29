@@ -49,54 +49,52 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             return False
 
         r = accessor.reader()
-        #logging.info(r.info())
 
         # Remove existing destination file
         if os.path.isfile(str(outfile)):
             logging.warning("Removing existing file")
             os.remove(outfile)
 
+        decompressed_path = workdir
 
-        do_update_contents = True
+        mode="r"
 
-        if do_update_contents:
-            decompressed_path = workdir
+        ext = Path(raw.filename).suffix
+        if ext == '.gz':
+            mode="r:gz"
 
-            mode="r"
+        contents = None
 
-            ext = Path(raw.filename).suffix
-            if ext == '.gz':
-                mode="r:gz"
+        ## Forces decode as gz file for now
+        with tarfile.open(fileobj=r,mode=mode) as tf:
+            tf.extractall(path=decompressed_path)
+            mem = tf.getmembers()
 
-            ## Forces decode as gz file for now
-            with tarfile.open(fileobj=r,mode=mode) as tf:
-                tf.extractall(path=decompressed_path)
-                mem = tf.getmembers()
+            contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem if ti.isfile()]
 
-                contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem]
+            ## Recompress
+            files = [str(n.name) for n in mem]
 
-                ## Recompress
-                files = [str(n.name) for n in mem]
-                #"-mx=9",
-                command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
-                process = subprocess.run(command,cwd=str(decompressed_path))
+            #"-mx=9",
+            command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
+            process = subprocess.run(command,cwd=str(decompressed_path))
 
-                run.collection.find_one_and_update({'basename': run.basename},
-                                                    {'$set': {"contents": contents }})
+            run.collection.find_one_and_update({'basename': run.basename},
+                                                {'$set': {"contents": contents }})
 
-        else:
-            # If not updating contents, this can be done as a streaming operation
-            with tarfile.open(fileobj=r,mode="r:gz") as tf:
-                while True:
-                    mem = tf.next()
-                    if not mem:
-                        break
-
-                    command = ["7z", "a", "-bd", "-si%s" % mem.name, "-y", outfile]
-
-                    with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
-                        with tf.extractfile(mem) as data:
-                            shutil.copyfileobj(data, process.stdin)
+        # else:
+        #     # If not updating contents, this can be done as a streaming input-to-7z operation (w/o ever making a temporary file)
+        #     with tarfile.open(fileobj=r,mode="r:gz") as tf:
+        #         while True:
+        #             mem = tf.next()
+        #             if not mem:
+        #                 break
+        #
+        #             command = ["7z", "a", "-bd", "-si%s" % mem.name, "-y", outfile]
+        #
+        #             with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+        #                 with tf.extractfile(mem) as data:
+        #                     shutil.copyfileobj(data, process.stdin)
 
 
         # Check the results
@@ -129,6 +127,8 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             logging.info("Error inserting into db...")
 
 
+
+## Repeats above quite a bit.   Lots of potential for reducing the DRY...
 
 @app.task
 def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None):
@@ -223,14 +223,13 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None):
             accessor.write(zfile,statinfo.st_size)
 
         logging.info("Upload successful, updating DB")
+        if(contents):
+            run.json["contents"] = contents
         run = dbclient.insert_run(run)
         if not run:
             logging.info("Error inserting into db...")
 
         ## Ugliness
-        if(contents):
-            raw.json["contents"] = contents
-
         run.insert_raw(raw)
 
 
