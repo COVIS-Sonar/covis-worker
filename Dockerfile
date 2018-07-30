@@ -26,4 +26,4 @@ RUN groupadd -g 999 covis && \
 RUN chown -R covis:covis /code
 USER covis
 
-ENTRYPOINT ["make", "worker"]
+CMD ["make", "worker"]

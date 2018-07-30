@@ -54,7 +54,8 @@ reset_test_db: ${TEST_DATA}/test_db.bson
 
 ## Run sample jobs against local test_up network
 DOCKER_NETWORK=covis_default
-DOCKER_RUN=docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3
+DOCKER_RUN=docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK}
+DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
 # Attach a test worker to the covis_Default test network ... for use with non-"local"
 # jobs below
@@ -62,26 +63,35 @@ test_worker: build up
 	docker run --rm -it --env-file docker.env --network covis_default	${TEST_TAG}
 
 postprocess_local: build
-	${DOCKER_RUN} ${TEST_TAG} apps/queue_postprocess.py --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 postprocess: build
-	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 postprocess_local_job: build
-	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 postprocess_job: build
-	docker run --rm -it --env-file docker.env --network ${DOCKER_NETWORK} --entrypoint python3 ${TEST_TAG} apps/queue_postprocess.py  --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 ## Use test docker image to import (and potentially rezip) files
 ## from the test SFTP site
-test_sftp_import: build test_ssh_keys
-		${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro \
-							${TEST_TAG} apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+test_sftp_import: build reset_test_db test_ssh_keys
+	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
+						apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 test_rezip_local: build reset_test_db
-	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro \
-						${TEST_TAG} apps/queue_rezip.py  --run-local --log INFO --skip-dmas
+	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
+					 apps/queue_rezip.py  --run-local --log INFO --skip-dmas
+
+test_validate_db: build
+	${DOCKER_RUN_TEST} apps/validate_db.py --log INFO --dry-run
+
+test_validate_minio: build
+	${DOCKER_RUN_TEST} apps/validate_minio.py --log INFO --dry-run covis-nas
+
+
+
 
 
 
