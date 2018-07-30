@@ -40,6 +40,10 @@ for run in client.runs.find({}):
         continue
 
     for raw in run.raw:
+        if( raw.host == "DMAS" ):
+            continue
+
+
         logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
 
         if not raw.accessor().exists():
@@ -54,7 +58,7 @@ for run in client.runs.find({}):
             # Look for a specific known problem where raw filenames
             # on covis-nas don't have the .7z extension
             if raw.host == "COVIS-NAS" and re.match(r'^(?!.*[.]7z$).*$',raw.filename):
-                logging.info("   ... found file on COVIS-NAS without extention")
+                logging.info("!!! found file on COVIS-NAS without extention")
 
                 if args.fix:
                     logging.info("     (fix goes here)")
