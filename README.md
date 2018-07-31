@@ -1,11 +1,30 @@
+# COVIS-Worker
+
+This repository contains tools used to run the Matlab-based analysis tools in the [covis-postprocessing](https://github.com/COVIS-Sonar/postprocessing) repository at scale in a Docker cluster.   I use [Rancher 1.x](https://rancher.com/docs/rancher/v1.6/en/) for cluster coordination but in general these tools should be amenable to any sort of `docker-compose`-like environment.
+
+__High-level documentation of the post-processing suite is stored in the [`Docs/`](https://github.com/COVIS-Sonar/postprocessing/tree/master/Docs) directory in the [covis-postprocessing](https://github.com/COVIS-Sonar/postprocessing) repository.__
+
+This repo get packaged into the [`amarburg/covis-worker`]() Docker image, which
+does all of the work, supported by other "stock" Docker images.  A minimal COVIS-worker deployment includes instances of:
+
+  * [rabbitmq](https://www.rabbitmq.com/).   covis-worker jobs are managed by [celery](http://www.celeryproject.org) using a [rabbitmq broker](https://www.rabbitmq.com).
+
+  * [MongoDB](https://www.mongodb.com/).   COVIS data files are catalogued in a MongoDB instance.   This database
+is __non-authoritative__  --- the truth is what's stored on disk, the d/b is just a convenient index of those contents.  It can be rebuilt at any time by comparison with disk.
+
+  * [Minio](https://www.minio.io).   All file I/O is handled through an S3-ish interface provided by one or more instances if [minio](https://www.minio.io)
+
+A sample cluster can be found in the `docker-compose.yml` file in this repo, which is used for testing.
 
 
-Contains the following Python packages:
+# The covis-worker
 
- - `covis_db` is a Python library that encapsulates a Mongo DB instance which stores
- information about COVIS data files.
+The covis-worker itself consists of  two Python packages and a small set of command-line scripts in the `apps/` directory.     Many of the post-processing tasks use compiled Matlab code from the [covis-postprocessing](ttps://github.com/COVIS-Sonar/postprocessing) package, typically compiled into a Docker image, which the `Dockerfile` in this repo uses as a base image.
 
- - `covis_worker` is a Python library which instantiates a Celery worker
+
+The `covis_db` library interacts with the MongoDB database.
+
+`covis_worker` contains the worker functions for the Celery app.
 
 
 
