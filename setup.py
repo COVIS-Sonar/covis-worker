@@ -10,5 +10,5 @@ setup(name='covis_worker',
       url='',
       packages=['covis_db','covis_worker'],
       install_requires=['minio','pymongo','libarchive',
-                        'python-decouple','paramiko','boto3','sendgrid', 'requests']
+                        'python-decouple','paramiko','boto3','requests']
      )
