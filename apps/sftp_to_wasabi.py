@@ -6,6 +6,8 @@ import argparse
 # import json
 import logging
 import shutil
+import stat
+import os
 
 import boto3
 from botocore.exceptions import ClientError
@@ -37,6 +39,10 @@ parser.add_argument('--privkey',
                     default=config('SFTP_PRIVKEY', default=None),
                     nargs='?')
 
+parser.add_argument('--bucket',
+                    default=config('S3_BUCKET', default=None),
+                    nargs='?')
+
 parser.add_argument('--privkey-password', dest="privkeypassword",
                     default=config('SFTP_PRIVKEY_PASSWORD', default=""),
                     nargs='?')
@@ -48,6 +54,10 @@ parser.add_argument('sftpurl', action='store')
 
 args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
+
+if not args.bucket:
+    logging.error("Must provide bucket or set S3_BUCKET")
+    exit()
 
 ## Open db client
 srcurl = urlparse(args.sftpurl)
@@ -80,66 +90,91 @@ s3 = boto3.resource('s3',
                     aws_access_key_id = config("S3_ACCESS_KEY"),
                     aws_secret_access_key = config("S3_SECRET_KEY"))
 
-bucket_name = "covis-raw"
-bucket = s3.Bucket(bucket_name)
+bucket = s3.Bucket(args.bucket)
 
 out_msgs = []
 
-for remote_file in sftp.listdir():
-
-    logging.info("Considering remote file %s" % remote_file)
-
-    if not misc.is_covis_file(remote_file):
-        logging.info("   ... not a COVIS raw file, skipping...")
-        continue
-
-
-    try:
-        s3.Object(bucket_name, str(remote_file)).load()
-    except ClientError as e:
-        if int(e.response['Error']['Code']) == 404:
-            ## Object does not exist
-            pass
+def sftp_walk(remotepath):
+    path=remotepath
+    files=[]
+    folders=[]
+    for f in sftp.listdir_attr(remotepath):
+        if stat.S_ISDIR(f.st_mode):
+            folders.append(f.filename)
         else:
-            ## Some other error
-            raise
-    else:
-        logging.info("The object %s exists in the S3 bucket" % remote_file)
-        if not args.force:
+            logging.info("Appending %s" % f.filename)
+            files.append(f.filename)
+
+    if files:
+        yield path, files
+
+    for folder in folders:
+        newpath = os.path.join(remotepath,folder)
+        for x in sftp_walk(newpath):
+            yield x
+
+
+for path,files in sftp_walk(""):
+
+    for file in files:
+
+        logging.info("Considering remote file %s" % file)
+
+        if bucket == "covis-raw" and not misc.is_covis_file(file):
+            logging.info("   ... not a COVIS raw file, skipping...")
             continue
 
-        logging.info("   ... but --force specified, so doing it anyway")
+        s3_file = os.path.join(path,file)
+
+        try:
+            s3.Object(args.bucket, str(s3_file)).load()
+        except ClientError as e:
+            if int(e.response['Error']['Code']) == 404:
+                ## Object does not exist
+                pass
+            else:
+                ## Some other error
+                raise
+        else:
+            logging.info("The object %s exists in the S3 bucket" % s3_file)
+            if not args.force:
+                continue
+
+            logging.info("   ... but --force specified, so doing it anyway")
 
 
 
 
-    logging.info("File %s does not exist, uploading ..." % remote_file )
+        logging.info("File %s does not exist, uploading ..." % s3_file )
 
-    if args.dryrun:
-        logging.info(" .... dry run, skipping")
-        continue
+        if args.dryrun:
+            logging.info(" .... dry run, skipping")
+            continue
 
-    #     ## Attempt to add to dest
-    #
-    #     logging.info("Uploading to destination host %s" % args.desthost)
-    #
-    #     run = db.make_run(basename=basename)
-    #     raw = run.add_raw(args.desthost, make_filename=True)
-    #     accessor = raw.accessor()
-    #
-    #     if not accessor:
-    #         logging.error("Unable to get accessor for %s" % args.desthost)
+        #     ## Attempt to add to dest
+        #
+        #     logging.info("Uploading to destination host %s" % args.desthost)
+        #
+        #     run = db.make_run(basename=basename)
+        #     raw = run.add_raw(args.desthost, make_filename=True)
+        #     accessor = raw.accessor()
+        #
+        #     if not accessor:
+        #         logging.error("Unable to get accessor for %s" % args.desthost)
 
-    with sftp.open(remote_file) as sftpfile:
+        sftp_fullpath = os.path.join(srcurl.path,path,file)
+        logging.info("Getting from SFTP: %s" % sftp_fullpath)
 
-        statinfo = sftpfile.stat()
+        with sftp.open(sftp_fullpath) as sftpfile:
 
-        logging.info("Writing %d bytes to S3 as \"%s\"" % (statinfo.st_size,remote_file))
-        bucket.upload_fileobj(sftpfile, remote_file)
+            statinfo = sftpfile.stat()
 
-    out_msgs.append("Uploaded %s" % remote_file)
-    if not args.quiet:
-      print("Uploaded %s" % remote_file)
+            logging.info("Writing %d bytes to S3 as \"%s\"" % (statinfo.st_size,s3_file))
+            bucket.upload_fileobj(sftpfile, s3_file)
+
+        out_msgs.append("Uploaded %s" % s3_file)
+        if not args.quiet:
+          print("Uploaded %s" % s3_file)
 
 client.close()
 
@@ -176,130 +211,3 @@ if len(out_msgs) > 0:
                   "text": "\n".join(out_msgs)})
 
         logging.debug(response)
-
-
-    #
-    #
-    #     logging.info("Upload successful, updating DB")
-    #
-    #     run = db.insert_run(run)
-    #     if not run:
-    #         logging.info("Error inserting into db...")
-    #
-    #     ## Ugliness
-    #     run.insert_raw(raw)
-    #
-
-
-
-
-
-## If given, load JSON, otherwise initialize an empty config struct
-#
-# config = {}
-#
-# if args.config:
-#     if Path(args.config).exist:
-#         with open(args.config) as fp:
-#             logging.info("Loading configuration from %s" % args.config)
-#             config = json.load(args.config)
-#
-#     elif args.config == '-':
-#         config = json.load(sys.stdin)
-#
-#
-# if args.basename:
-#     config["selector"] = { "basename": { "$in": args.basename } }
-#
-# if args.job:
-#     config["job_id"] = args.job
-#
-#
-# if not config["selector"]:
-#     logging.error("No basenames provided")
-#     exit()
-#
-# ## Default
-# config["dest"] = { "minio": { "host": "covis-nas",
-#                             "bucket": "postprocessed" }}
-#
-# # Validate configuration
-# if "dest" not in config:
-#     logging.error("No destination provided")
-#     exit()
-#
-# prefix = ""
-# if "job_id" in config:
-#     prefix = "by_job_id/%s" % config["job_id"]
-# else:
-#     prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
-#
-# ## If specified, load the JSON configuration
-# with client.runs.find(config["selector"]) as results:
-#
-#     for r in results:
-#         print(r)
-#
-#         if not args.dryrun:
-#
-#             if args.runlocal:
-#                 job = process.process(r['basename'], config["dest"],
-#                                         job_prefix = prefix,
-#                                         process_json = config.get("process_json", ""),
-#                                         plot_json = config.get("plot_json", ""))
-#             else:
-#                 job = process.process.delay(r['basename'],config["dest"],
-#                                         job_prefix = prefix,
-#                                         process_json = config.get("process_json", ""),
-#                                         plot_json = config.get("plot_json", ""))
-#         else:
-#             print("Dry run, skipping...")
-#
-# # # Validate destination hostname
-# # if not hosts.validate_host(args.desthost):
-# #     print("Can't understand destination host \"%s\"" % args.desthost)
-# #     exit()
-# #
-#
-# #
-# # # Find run which are _not_ on NAS
-# # result = client.runs.aggregate( [
-# #     {"$match": { "$and":
-# #                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } }
-# #                 ]
-# #     } }
-# # ])
-# #
-# # #                  { "mode":     {"$eq": "DIFFUSE"}} ]
-# #
-# #
-# # # result = client.runs.aggregate( [
-# # #     {"$match": { "$and":
-# # #                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
-# # #     } }
-# # # ])
-# #
-# # i = 0
-# # for elem in result:
-# #
-# #     run = db.CovisRun(elem)
-# #
-# #     logging.info("Considering basename %s" % (run.basename))
-# #
-# #     locations = [raw.host for raw in run.raw]
-# #
-# #     if args.skipdmas and locations == ["DMAS"]:
-# #         logging.info("    File only on DMAS, skipping...")
-# #         continue
-# #
-# #
-# #     logging.info("Queuing rezip job for %s on %s" % (run.basename, ','.join(locations)))
-# #
-# #     if not args.dryrun:
-# #         job = rezip.rezip.delay(run.basename,args.desthost)
-# #     else:
-# #         print("Dry run, skipping...")
-# #
-# #     i = i+1
-# #     if args.count > 0 and i > args.count:
-# #         break
