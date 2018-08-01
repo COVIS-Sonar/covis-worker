@@ -102,7 +102,6 @@ def sftp_walk(remotepath):
         if stat.S_ISDIR(f.st_mode):
             folders.append(f.filename)
         else:
-            logging.info("Appending %s" % f.filename)
             files.append(f.filename)
 
     if files:
@@ -125,9 +124,12 @@ for path,files in sftp_walk(""):
             continue
 
         s3_file = os.path.join(path,file)
+        sftp_fullpath = os.path.join(srcurl.path,path,file)
+
 
         try:
-            s3.Object(args.bucket, str(s3_file)).load()
+            obj = s3.Object(args.bucket, str(s3_file))
+            s3_obj = obj.load()
         except ClientError as e:
             if int(e.response['Error']['Code']) == 404:
                 ## Object does not exist
@@ -136,9 +138,22 @@ for path,files in sftp_walk(""):
                 ## Some other error
                 raise
         else:
-            logging.info("The object %s exists in the S3 bucket" % s3_file)
-            if not args.force:
-                continue
+            logging.debug("The object %s exists in the S3 bucket" % s3_file)
+
+            ## Compare sizes
+            sftp_stat = sftp.lstat( sftp_fullpath )
+
+            sftp_size = sftp_stat.st_size
+            s3_size  = obj.content_length;
+
+
+            if sftp_size != s3_size:
+                logging.info("Size mismatch (s3: %d bytes, sftp: %d bytes), attempting to re-download" % (s3_size, sftp_size))
+            else:
+
+
+                if not args.force:
+                    continue
 
             logging.info("   ... but --force specified, so doing it anyway")
 
@@ -162,7 +177,6 @@ for path,files in sftp_walk(""):
         #     if not accessor:
         #         logging.error("Unable to get accessor for %s" % args.desthost)
 
-        sftp_fullpath = os.path.join(srcurl.path,path,file)
         logging.info("Getting from SFTP: %s" % sftp_fullpath)
 
         with sftp.open(sftp_fullpath) as sftpfile:
