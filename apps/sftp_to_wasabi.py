@@ -150,17 +150,15 @@ for path,files in sftp_walk(""):
             if sftp_size != s3_size:
                 logging.info("Size mismatch (s3: %d bytes, sftp: %d bytes), attempting to re-download" % (s3_size, sftp_size))
             else:
-
-
                 if not args.force:
                     continue
-
-            logging.info("   ... but --force specified, so doing it anyway")
-
-
+                else:
+                    logging.info("   ... but --force specified, so doing it anyway")
 
 
-        logging.info("File %s does not exist, uploading ..." % s3_file )
+
+
+        logging.info("Uploading file %s" % s3_file )
 
         if args.dryrun:
             logging.info(" .... dry run, skipping")
