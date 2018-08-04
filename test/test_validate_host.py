@@ -28,5 +28,11 @@ def test_individual_checks():
     for hn in good_dmas:
         assert hosts.is_dmas(hn)
 
+    for hn in good_old_nas:
+        assert hosts.is_old_nas(hn)
+
+    for hn in good_covis_nas:
+        assert hosts.is_nas(hn)
+
     for hn in bad_hostnames + good_covis_nas + good_old_nas:
         assert hosts.is_dmas(hn) == False

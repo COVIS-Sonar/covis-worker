@@ -136,6 +136,8 @@ flower:
 worker:
 	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
 
+idle:
+	while true; do sleep 3600; done
 
 
 
@@ -174,8 +176,11 @@ import_seed_data: seed_data.bson
 
 
 # Dump mongodb to a JSON test file
-dump:
+dump_json:
 	apps/dump_mongo.py > dump.json
+
+dump_json:
+	apps/dump_mongo.py
 
 backup:
 	mongodump -o mongodb.backup --gzip

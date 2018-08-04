@@ -66,18 +66,7 @@ class CovisDB:
 
     def make_run(self,basename):
         ## Break filename apart
-        parts = re.split(r'[\_\-]', basename)
-
-        # Todo:  More validation of parts
-
-        # full timestamp with milliseconds
-        match = re.match(r"\d{4}\d{2}\d{2}T\d{2}\d{2}\d{2}\.\d+Z", parts[1])
-        if match:
-            date = datetime.strptime(parts[1], "%Y%m%dT%H%M%S.%fZ")
-        else:
-            date = datetime.datetime.strptime(parts[1], "%Y%m%dT%H%M%S")
-
-        mode = parts[2]
+        date,mode = misc.split_basename(basename)
 
         # Insert validation here
         entry = { 'basename': str(basename),
@@ -110,6 +99,10 @@ class CovisRun:
     @property
     def mode(self):
         return self.json["mode"]
+
+    @property
+    def site(self):
+        return self.json["site"]
 
     @property
     def raw(self):

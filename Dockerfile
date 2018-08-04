@@ -6,7 +6,7 @@ RUN apt-get update && apt install -yq --no-install-recommends \
 
 # Pre-install dependencies by hand so they get cached in an earlier
 #     Docker layer
-RUN pip3 install celery flower minio pymongo libarchive \
+RUN pip3 install --upgrade celery flower minio pymongo libarchive \
             python-decouple requests boto3 paramiko
 
 # Install the local python packages
