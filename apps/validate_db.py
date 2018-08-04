@@ -52,6 +52,22 @@ for run in client.runs.find({}):
         if( raw.host == "DMAS" ):
             continue
 
+        ## Drop incorrect db entries
+        if "filename" in run.json:
+            logging.info("Fixing raw entry ")
+
+            result = client.runs.update_one({'basename': run.basename},
+                                            {'$pull': {"raw" : { "host" : "COVIS-NAS"  }}} )
+
+            result = client.runs.update_one({'basename': run.basename},
+                                            {'$push': {"raw" : { "host" : "COVIS-NAS", "filename": run.json["filename"][0] }} })
+
+            result = client.runs.update_one({'basename': run.basename},
+                                            {'$unset': { "filename": "", "host": ""}})
+
+            print( client.runs.find_one({"basename": run.basename}))
+            exit(0)
+
 
         logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
 
@@ -61,7 +77,6 @@ for run in client.runs.find({}):
             if args.fix:
                 run.drop_raw(raw)
                 continue
-
 
         # Check for mis-named files
         if run.site.lower() == "endeavour":
@@ -94,12 +109,14 @@ for run in client.runs.find({}):
                     except ResponseError as err:
                         logging.info(err)
 
-                    result = run.collection.update_one({'basename': run.basename},
-                                                        {'$pull': raw.json } )
+                    result = client.runs.update_one({'basename': run.basename},
+                                                        {'$pull': {"raw" : raw.json }} )
                     raw.json['filename'] = new_path
 
-                    result = run.collection.update_one({'basename': run.basename},
-                                                        {'$push': raw.json } )
+                    print(raw.json)
+
+                    result = client.runs.update_one({'basename': run.basename},
+                                                        {'$push': {"raw" : raw.json }} )
 
 
         # Look for a specific known problem where raw filenames

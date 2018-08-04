@@ -179,7 +179,7 @@ import_seed_data: seed_data.bson
 dump_json:
 	apps/dump_mongo.py > dump.json
 
-dump_json:
+dump:
 	apps/dump_mongo.py
 
 backup:
