@@ -65,9 +65,6 @@ for run in client.runs.find({}):
             result = client.runs.update_one({'basename': run.basename},
                                             {'$unset': { "filename": "", "host": ""}})
 
-            print( client.runs.find_one({"basename": run.basename}))
-            exit(0)
-
 
         logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
 
@@ -97,24 +94,19 @@ for run in client.runs.find({}):
                     try:
                         # Src path needs to include bucket name?
                         src_path = "/%s/%s" % (accessor.bucket, accessor.path)
-                        logging.info("Src path: %s" % src_path)
+                        #logging.info("Src path: %s" % src_path)
                         result = mclient.copy_object( accessor.bucket, new_path, src_path, CopyConditions() )
-                        logging.info(result)
                     except ResponseError as err:
                         logging.info(err)
 
                     try:
                         result = mclient.remove_object( accessor.bucket, accessor.path )
-                        logging.info(result)
                     except ResponseError as err:
                         logging.info(err)
 
                     result = client.runs.update_one({'basename': run.basename},
                                                         {'$pull': {"raw" : raw.json }} )
                     raw.json['filename'] = new_path
-
-                    print(raw.json)
-
                     result = client.runs.update_one({'basename': run.basename},
                                                         {'$push': {"raw" : raw.json }} )
 
