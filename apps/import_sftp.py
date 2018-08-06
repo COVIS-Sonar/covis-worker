@@ -111,10 +111,10 @@ for remote_file in sftp.listdir():
             continue
 
         if args.runlocal:
-            job = rezip.rezip_from_sftp(srcurl.geturl() + remote_file,args.desthost,
+            job = rezip.rezip_from_sftp(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
         else:
-            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + remote_file,args.desthost,
+            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
 
         ## Attempt to add to dest

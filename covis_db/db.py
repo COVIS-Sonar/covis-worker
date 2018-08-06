@@ -13,7 +13,7 @@ import glob
 from pathlib import Path
 
 from os import path
-from . import remote,hosts
+from . import remote,hosts,misc
 
 
 # Thin wrapper around MongoDB client accessor

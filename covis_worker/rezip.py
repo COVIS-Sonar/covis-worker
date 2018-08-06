@@ -129,7 +129,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
 
 
-## Repeats above quite a bit.   Lots of potential for reducing the DRY...
+## Repeats above quite a lot.   Lots of potential for reducing the DRY...
 @app.task
 def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
                     privkey=config("SFTP_PRIVKEY",""),
@@ -147,10 +147,12 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
     print(srcurl)
 
     srcpath = Path(srcurl.path)
-    filename = srcpath.name
-    basename = misc.make_basename(srcpath)
+    port = srcurl.port if srcurl.port else 22
 
-    logging.info("Connecting to %s:%d as %s" % (srcurl.hostname, srcurl.port, srcurl.username))
+    filename = srcpath.name
+    basename = misc.make_basename(str(srcpath))
+
+    logging.info("Connecting to %s:%d as %s" % (srcurl.hostname, port, srcurl.username))
 
     client = SSHClient()
     client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
@@ -158,14 +160,14 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
                     username=srcurl.username,
                     key_filename=privkey,
                     passphrase=privkey_password,
-                    port=srcurl.port,
+                    port=port,
                     allow_agent=True)
 
     sftp = client.open_sftp()
 
     with tempfile.TemporaryDirectory(dir=tempdir) as workdir:
         destfile = Path(workdir) / filename
-        logging.info("Retrieving to temporary file %s" % destfile)
+        logging.info("Retrieving %s to temporary file %s" % (srcurl.path, destfile))
 
         sftp.get( srcurl.path, str(destfile) )
 

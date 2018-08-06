@@ -54,7 +54,7 @@ for run in client.runs.find({}):
 
         ## Drop incorrect db entries
         if "filename" in run.json:
-            logging.info("Fixing raw entry ")
+            logging.info("!!! Fixing raw entry ")
 
             result = client.runs.update_one({'basename': run.basename},
                                             {'$pull': {"raw" : { "host" : "COVIS-NAS"  }}} )
