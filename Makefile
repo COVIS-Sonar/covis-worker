@@ -139,6 +139,10 @@ worker:
 idle:
 	while true; do sleep 3600; done
 
+covis_sftp_import:
+	apps/import_sftp.py --run-local --log INFO sftp://covis@pi.ooirsn.uw.edu/data/COVIS
+
+
 
 
 #  Retrieve list of 2010-2015 COVIS files currently on ONC DMAS
