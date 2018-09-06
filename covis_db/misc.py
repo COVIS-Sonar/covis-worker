@@ -28,6 +28,12 @@ def make_basename(file):
 
     return base
 
+def splitext(path):
+    for ext in ['.tar.gz', '.tar.bz2']:
+        if path.endswith(ext):
+            return path[:-len(ext)], path[-len(ext):]
+    return os.path.splitext(path)
+
 def split_basename(basename):
     parts = re.split(r'[\_\-]', basename)
 

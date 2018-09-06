@@ -68,6 +68,10 @@ if not args.privkey:
     logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
     exit()
 
+if not os.path.exists( args.privkey ):
+    logging.error("Private key file %s does not exist"  % args.privkey )
+    exit()
+
 logging.info("Connecting to %s:%d as %s with privkey %s" % (srcurl.hostname, port, username,args.privkey))
 
 client = SSHClient()
@@ -86,7 +90,7 @@ sftp.chdir(srcurl.path)
 ## Meanwhile, setup the S3 connection as well
 
 s3 = boto3.resource('s3',
-                    endpoint_url = 'https://s3.us-west-1.wasabisys.com',
+                    endpoint_url = 'https://s3.wasabisys.com',
                     aws_access_key_id = config("S3_ACCESS_KEY"),
                     aws_secret_access_key = config("S3_SECRET_KEY"))
 
@@ -112,20 +116,26 @@ def sftp_walk(remotepath):
         for x in sftp_walk(newpath):
             yield x
 
-
 for path,files in sftp_walk(""):
 
     for file in files:
 
         logging.info("Considering remote file %s" % file)
 
-        if bucket == "covis-raw" and not misc.is_covis_file(file):
-            logging.info("   ... not a COVIS raw file, skipping...")
-            continue
+        if args.bucket == "covis-raw":
+            if not misc.is_covis_file(file):
+                logging.info("   ... not a COVIS raw file, skipping...")
+                continue
 
-        s3_file = os.path.join(path,file)
+            filename,ext = misc.splitext(file)
+            s3_file = misc.make_pathname( file, suffix=ext )
+
+        else:
+            s3_file = os.path.join(path,file)
+
         sftp_fullpath = os.path.join(srcurl.path,path,file)
 
+        logging.info("S3 filename: %s" % s3_file )
 
         try:
             obj = s3.Object(args.bucket, str(s3_file))
