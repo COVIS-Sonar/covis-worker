@@ -143,8 +143,8 @@ covis_import_sftp_to_nas:
 	apps/import_sftp.py --run-local --log INFO sftp://covis@pi.ooirsn.uw.edu/data/COVIS
 
 covis_import_sftp_to_s3:
-	apps/sftp_to_wasabi.py --quiet --bucket covis-raw --log warning ftp://covis@pi.ooirsn.uw.edu/data/COVIS
-	apps/sftp_to_wasabi.py --quiet --bucket covis-eng --log warning ftp://covis@pi.ooirsn.uw.edu/data/COVIS-ENG
+	apps/sftp_to_wasabi.py --bucket covis-raw --log INFO ftp://covis@pi.ooirsn.uw.edu/data/COVIS
+	apps/sftp_to_wasabi.py --bucket covis-eng --log INFO ftp://covis@pi.ooirsn.uw.edu/data/COVIS-ENG
 
 
 
