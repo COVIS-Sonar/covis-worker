@@ -1,3 +1,0 @@
-[submodule "covis-test-data"]
-	path = covis-test-data
-	url = https://github.com/COVIS-Sonar/covis-test-data.git
