@@ -10,8 +10,12 @@ import subprocess
 import gzip
 import shutil
 import tarfile
+from urllib.parse import urlparse
+from decouple import config
 
 import hashlib as hash
+
+from paramiko.client import SSHClient,AutoAddPolicy
 
 from covis_db import hosts,db,misc
 
@@ -20,7 +24,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
     print("Rezipping %s and storing to %s" % (basename, dest_host))
 
     client = db.CovisDB()
-    run = client.find_one(basename)
+    run = client.find(basename)
 
     if not run:
         # What's the canonical way to report errors
@@ -45,54 +49,52 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             return False
 
         r = accessor.reader()
-        #logging.info(r.info())
 
         # Remove existing destination file
         if os.path.isfile(str(outfile)):
             logging.warning("Removing existing file")
             os.remove(outfile)
 
+        decompressed_path = workdir
 
-        do_update_contents = True
+        mode="r"
 
-        if do_update_contents:
-            decompressed_path = workdir
+        ext = Path(raw.filename).suffix
+        if ext == '.gz':
+            mode="r:gz"
 
-            mode="r"
+        contents = None
 
-            ext = Path(raw.filename).suffix
-            if ext == '.gz':
-                mode="r:gz"
+        ## Forces decode as gz file for now
+        with tarfile.open(fileobj=r,mode=mode) as tf:
+            tf.extractall(path=decompressed_path)
+            mem = tf.getmembers()
 
-            ## Forces decode as gz file for now
-            with tarfile.open(fileobj=r,mode=mode) as tf:
-                tf.extractall(path=decompressed_path)
-                mem = tf.getmembers()
+            contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem if ti.isfile()]
 
-                contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem]
+            ## Recompress
+            files = [str(n.name) for n in mem]
 
-                ## Recompress
-                files = [str(n.name) for n in mem]
-                #"-mx=9",
-                command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
-                process = subprocess.run(command,cwd=str(decompressed_path))
+            #"-mx=9",
+            command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
+            process = subprocess.run(command,cwd=str(decompressed_path))
 
-                run.collection.find_one_and_update({'basename': run.basename},
-                                                    {'$set': {"contents": contents }})
+            run.collection.find_one_and_update({'basename': run.basename},
+                                                {'$set': {"contents": contents }})
 
-        else:
-            # If not updating contents, this can be done as a streaming operation
-            with tarfile.open(fileobj=r,mode="r:gz") as tf:
-                while True:
-                    mem = tf.next()
-                    if not mem:
-                        break
-
-                    command = ["7z", "a", "-bd", "-si%s" % mem.name, "-y", outfile]
-
-                    with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
-                        with tf.extractfile(mem) as data:
-                            shutil.copyfileobj(data, process.stdin)
+        # else:
+        #     # If not updating contents, this can be done as a streaming input-to-7z operation (w/o ever making a temporary file)
+        #     with tarfile.open(fileobj=r,mode="r:gz") as tf:
+        #         while True:
+        #             mem = tf.next()
+        #             if not mem:
+        #                 break
+        #
+        #             command = ["7z", "a", "-bd", "-si%s" % mem.name, "-y", outfile]
+        #
+        #             with subprocess.Popen(command, stdin=subprocess.PIPE) as process:
+        #                 with tf.extractfile(mem) as data:
+        #                     shutil.copyfileobj(data, process.stdin)
 
 
         # Check the results
@@ -104,8 +106,9 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             logging.error("7z test on file %s has non-zero return value" % str(outfile))
             return False
 
-        dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / misc.make_basename(outfile)
-        dest_filename = dest_filename.with_suffix('.7z')
+        dest_filename = misc.make_pathname( run.basename, date=run.datetime, suffix='.7z' )
+
+
         logging.info("Dest filename: %s" % str(dest_filename))
 
         logging.info("Uploading to destination host %s" % dest_host)
@@ -123,6 +126,121 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
         logging.info("Upload successful, updating DB")
         if not run.add_raw(raw.host, raw.filename):
             logging.info("Error inserting into db...")
+
+
+
+## Repeats above quite a lot.   Lots of potential for reducing the DRY...
+@app.task
+def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
+                    privkey=config("SFTP_PRIVKEY",""),
+                    privkey_password=config("PRIVKEY_PASSPHRASE","")):
+    print("Retrieving from SFTP site %s and storing to %s" % (sftp_url, dest_host))
+
+    if not privkey:
+        logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
+        return
+
+    dbclient = db.CovisDB()
+
+    #sftp_url must be complete (with username and port)
+    srcurl = urlparse(sftp_url)
+    print(srcurl)
+
+    srcpath = Path(srcurl.path)
+    port = srcurl.port if srcurl.port else 22
+
+    filename = srcpath.name
+    basename = misc.make_basename(str(srcpath))
+
+    logging.info("Connecting to %s:%d as %s" % (srcurl.hostname, port, srcurl.username))
+
+    client = SSHClient()
+    client.set_missing_host_key_policy(AutoAddPolicy)  ## Ignore host key for now...
+    client.connect(srcurl.hostname,
+                    username=srcurl.username,
+                    key_filename=privkey,
+                    passphrase=privkey_password,
+                    port=port,
+                    allow_agent=True)
+
+    sftp = client.open_sftp()
+
+    with tempfile.TemporaryDirectory(dir=tempdir) as workdir:
+        destfile = Path(workdir) / filename
+        logging.info("Retrieving %s to temporary file %s" % (srcurl.path, destfile))
+
+        sftp.get( srcurl.path, str(destfile) )
+
+        # Calculate output filename
+        # TODO make more flexible to different dest_fmts
+        outfile = (Path(workdir) / basename).with_suffix(".7z")
+
+        # Remove existing destination file
+        if os.path.isfile(str(outfile)):
+            logging.warning("Removing existing file")
+            os.remove(outfile)
+
+        decompressed_path = workdir
+        mode="r"
+
+        ext = destfile.suffix
+        if ext == '.gz':
+            mode="r:gz"
+
+        ## Forces decode as gz file for now
+        with tarfile.open(str(destfile),mode=mode) as tf:
+            tf.extractall(path=decompressed_path)
+            mem = tf.getmembers()
+
+            ## Generate metainfo about members
+            contents = [tarInfoToContentsEntry(ti, decompressed_path) for ti in mem if ti.isfile()]
+
+            ## Recompress
+            files = [str(n.name) for n in mem]
+
+            #"-mx=9",
+            command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
+            process = subprocess.run(command,cwd=str(decompressed_path))
+
+        logging.info(contents)
+
+        ## Assume SFTP imports are new records
+        # Check the results
+        command = ["7z", "l", "-bd", str(outfile)]
+        child = subprocess.Popen(command)
+        child.wait()
+
+        if child.returncode != 0:
+            logging.error("7z test on file %s has non-zero return value" % str(outfile))
+            return False
+
+        run = dbclient.make_run(basename=basename)
+        raw = run.add_raw(dest_host, make_filename=True)
+        accessor = raw.accessor()
+
+        # dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / basename.with_suffix('.7z')
+        # logging.info("Dest filename: %s" % str(dest_filename))
+        # logging.info("Uploading to destination host %s" % dest_host)
+
+        if not accessor:
+            logging.error("Unable to get accessor for %s" % dest_host)
+
+        statinfo = os.stat(str(outfile))
+        print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
+        with open(str(outfile), 'rb') as zfile:
+            accessor.write(zfile,statinfo.st_size)
+
+        logging.info("Upload successful, updating DB")
+        if(contents):
+            run.json["contents"] = contents
+        run = dbclient.insert_run(run)
+        if not run:
+            logging.info("Error inserting into db...")
+
+        ## Ugliness
+        run.insert_raw(raw)
+
+
 
 
 

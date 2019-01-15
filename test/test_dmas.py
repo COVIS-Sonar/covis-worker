@@ -16,7 +16,7 @@ dmas_filenames = ["APLUWCOVISMBSONAR001_20101001T042617.821Z-DIFFUSE.tar"]
 def test_retrieve_dmas():
 
     if not getenv('DMAS_API_KEY'):
-        logging.error("DMAS_API_KEY not set, skipping this test_retrieve_dmas.")
+        logging.error("DMAS_API_KEY not set, skipping test_retrieve_dmas.")
         return
 
     with tempfile.TemporaryDirectory() as tempdir:

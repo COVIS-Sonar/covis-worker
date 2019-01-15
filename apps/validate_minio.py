@@ -5,6 +5,7 @@ import argparse
 import sys
 import json
 import pathlib
+import logging
 
 from pymongo import MongoClient
 from decouple import config
@@ -21,20 +22,33 @@ parser.add_argument('--dry-run', action='store_true')
 parser.add_argument('--fix', action='store_true')
 
 parser.add_argument('hosts', nargs='+',
-                    help='')
+                    help='Minio hostname...')
+
+parser.add_argument('--log', metavar='log', nargs='?',
+                    default=config('LOG_LEVEL', default='INFO'),
+                    help='Logging level')
 
 args = parser.parse_args()
 
 client = db.CovisDB(MongoClient(args.dbhost))
+logging.basicConfig( level=args.log.upper() )
 
 
 for host in args.hosts:
 
     host = host.upper()
 
+    if not hosts.validate_host(host):
+        logging.warning("Host \"%s\" is not a valid covis host" % host)
+        continue
+
     ## Should DRY this
     raw = db.CovisRaw({"host":host, "filename":""})
     accessor = raw.accessor()
+
+    if not accessor:
+        logging.warning("Unable to create accessor to %s" % host)
+        continue
 
     mio = accessor.minio_client()
 
@@ -51,11 +65,11 @@ for host in args.hosts:
         run = client.find(basename)
 
         if run:
-            print("   Basename %s exists in database" % basename)
+            print("   ... basename %s exists in database" % basename)
 
             raw = run.find_raw( host, filename )
             if raw:
-                print("    and has raw for host %s" % host)
+                print("    ... and has raw for host %s" % host)
             else:
                 print("!!! but does not have raw entry for host %s." % host)
 

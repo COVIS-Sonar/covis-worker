@@ -1,3 +1,4 @@
+#
 # Launches all services necessary _for local testing_
 # Data is not persisted
 version: '3'
@@ -5,8 +6,6 @@ version: '3'
 services:
   mongodb:
     image: 'bitnami/mongodb:3.6'
-    labels:
-      kompose.service.type: nodeport
     ports:
       - "27017:27017"
 
@@ -39,3 +38,15 @@ services:
     environment:
      - MINIO_ACCESS_KEY=covis
      - MINIO_SECRET_KEY=coviscovis
+
+  sftp:
+    image: 'atmoz/sftp:debian'
+    ports:
+      - '2222:22'
+    volumes:
+      - ./covis-test-data/sftp-host:/home/covis
+      - ./tmp/ssh_keys/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key
+      - ./tmp/ssh_keys/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key
+      - ./tmp/ssh_keys/id_rsa.pub:/home/covis/.ssh/keys/id_rsa.pub
+    environment:
+      - SFTP_USERS=covis:coviscovis

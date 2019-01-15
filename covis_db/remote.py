@@ -29,7 +29,7 @@ class MinioAccessor:
         self.secret_key=config("%s_SECRET_KEY"  % config_base )
         self.url = config("%s_URL" % config_base )
 
-        logging.info("Using minio url %s" % self.url)
+        logging.debug("Using minio url %s" % self.url)
 
         self.bucket = bucket
         self.path = path
@@ -55,7 +55,7 @@ class MinioAccessor:
 
     def write(self, io, length):
         logging.debug("Writing object to %s / %s" % (self.bucket, self.path))
-        return self.minio_client().put_object(self.bucket, self.path, io, length)
+        return self.minio_client().put_object(self.bucket, str(self.path), io, length)
 
     def stats(self):
         return self.minio_client().stat_object(self.bucket, self.path)
