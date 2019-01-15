@@ -1,5 +1,5 @@
 
-from pymongo import MongoClient,ReturnDocument
+from pymongo import MongoClient,ReturnDocument,errors
 import re
 
 import datetime
@@ -14,6 +14,22 @@ from pathlib import Path
 
 from os import path
 from . import remote,hosts,misc
+
+
+def retry(num_tries, exceptions):
+    def decorator(func):
+        def f_retry(*args, **kwargs):
+            for i in range(num_tries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    logging.info("Exception, retrying...")
+                    continue
+        return f_retry
+    return decorator
+
+retry_auto_reconnect = retry(3, (errors.AutoReconnect,))
+
 
 
 # Thin wrapper around MongoDB client accessor
@@ -139,13 +155,24 @@ class CovisRun:
             return False
 
         entry = {'host': host, 'filename': str(filename)}
+        self.update_raw( entry )
 
+        return True
+
+    @retry_auto_reconnect
+    def update_raw( self, entry ):
         if self.collection:
             self.json = self.collection.find_one_and_update({'basename': self.basename},
                     {'$addToSet': {'raw': entry}},
                     return_document=ReturnDocument.AFTER)
 
         return CovisRaw(entry)
+
+    @retry_auto_reconnect
+    def update_contents( self, contents ):
+        if self.collection:
+            self.collection.find_one_and_update({'basename': self.basename},
+                                                {'$set': {"contents": contents }})
 
     def drop_raw(self,raw):
         entry = {'host': raw.host, 'filename': raw.filename}

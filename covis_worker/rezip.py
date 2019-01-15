@@ -79,8 +79,12 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             command = ["7z", "a",  "-bd", "-y", str(outfile)] + files
             process = subprocess.run(command,cwd=str(decompressed_path))
 
-            run.collection.find_one_and_update({'basename': run.basename},
-                                                {'$set': {"contents": contents }})
+            ## Update contents on run
+            logging.info("Attempting to update contents in Mongodb...")
+            run.update_contents( contents )
+
+            # run.collection.find_one_and_update({'basename': run.basename},
+            #                                     {'$set': {"contents": contents }})
 
         # else:
         #     # If not updating contents, this can be done as a streaming input-to-7z operation (w/o ever making a temporary file)
@@ -98,6 +102,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
 
 
         # Check the results
+        logging.info("Rezip complete, testing archive...")
         command = ["7z", "t", "-bd", str(outfile)]
         child = subprocess.Popen(command)
         child.wait()
