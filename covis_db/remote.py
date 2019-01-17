@@ -60,6 +60,9 @@ class MinioAccessor:
     def stats(self):
         return self.minio_client().stat_object(self.bucket, self.path)
 
+    def remove(self):
+        return self.minio_client().remove_object(self.bucket, self.path)
+
     def exists(self):
         try:
             stats = self.stats()

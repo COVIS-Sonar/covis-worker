@@ -125,15 +125,20 @@ class CovisRun:
         return [CovisRaw(p) for p in self.json["raw"]]
 
     # Check if it already exists
-    def find_raw(self,host,filename):
-        entry = {'host': host, 'filename': filename}
+    def find_raw(self,host):
+        #entry = {'host': host } #, 'filename': filename}
+        #print("Searching for %s" % entry)
 
         if self.collection:
             f = self.collection.find_one({'basename': self.basename,
-                                            'raw': {'$eq': entry } } )
+                                            'raw.host': {'$eq': host } } )
 
+            ## Still need to find the matching element in the raw array?
             if f:
-                return CovisRaw(f)
+                for r in f['raw']:
+                    if r['host'] == host:
+                        return CovisRaw(r)
+
         return False
 
     def insert_raw(self,raw):
