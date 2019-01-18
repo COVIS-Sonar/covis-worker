@@ -66,7 +66,6 @@ for host in args.hosts:
         for filename in args.filenames:
             do_validate(args, host, client, mio, filename)
 
-
     else:
 
         objects = mio.list_objects( accessor.bucket, recursive=True )
