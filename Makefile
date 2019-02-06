@@ -197,6 +197,17 @@ backup:
 restore:
 	mongorestore mongodb.backup
 
+## Assumes ENV variable MONGODB_URL
+backup_prod:
+	mongodump -vvvv --uri "${MONGODB_URL}" --out backup_prod --gzip
+
+## Assumes a local mongodb is running
+##   docker run -p 27017:27017 bitnami/mongodb:3.6
+bootstrap_local:
+	mongorestore -d covis --drop --dir backup_prod
+
+
+
 .PHONY:  help backup restore dump \
 			import_test get_test_data build drone build push \
 			docker_process_test
