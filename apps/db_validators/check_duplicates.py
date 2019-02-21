@@ -6,7 +6,7 @@ def check_duplicates( args, run ):
 
     cursor = run.collection.find({'basename': run.basename})
 
-    logging.info(" Basename has %d entries" % cursor.count() )
+    logging.info("    Basename has %d entries" % cursor.count() )
     if cursor.count() > 1:
         logging.info("   !!! Multiple entries for %s" % run.basename)
 

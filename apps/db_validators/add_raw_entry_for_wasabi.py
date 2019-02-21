@@ -13,7 +13,7 @@ def add_raw_entry_for_wasabi( args, run ):
 
     ## Check for raw
     if run.find_raw("WASABI"):
-        logging.info("... Has raw entry for WASABI")
+        logging.info("   Has raw entry for WASABI")
         return True
 
     if args.fix:
