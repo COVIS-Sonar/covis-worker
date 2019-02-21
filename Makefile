@@ -198,13 +198,15 @@ restore:
 	mongorestore mongodb.backup
 
 ## Assumes ENV variable MONGODB_URL
+##   Note the MONGODB_URL from Rancher will not work ... need to manually set
+##   the server address to a local IP rather than the rancher service name "mongodb"
 backup_prod:
 	mongodump -vvvv --uri "${MONGODB_URL}" --out backup_prod --gzip
 
 ## Assumes a local mongodb is running
 ##   docker run -p 27017:27017 bitnami/mongodb:3.6
 bootstrap_local:
-	mongorestore -d covis --drop --dir backup_prod
+	mongorestore -v --gzip --drop backup_prod
 
 
 
