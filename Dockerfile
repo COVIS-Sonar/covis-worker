@@ -28,6 +28,8 @@ RUN groupadd -g 999 covis && \
 RUN chown -R covis:covis /code
 USER covis
 
+ENV LD_LIBRARY_PATH=$MATLAB_LD_LIBRARY_PATH
+
 ## Back to default entrypoint
 ENTRYPOINT []
 CMD ["make", "worker"]
