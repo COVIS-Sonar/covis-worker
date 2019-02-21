@@ -77,8 +77,11 @@ for run in client.runs.find().limit( args.count ):
 
         logging.debug("Checking basename %s" % run.basename)
 
+        raw_size = None
+        nas_size = None
+        gz_size = None
+
         if 'contents' in run.json:
-            raw_size = 0
             for file in run.json['contents']:
                 if 'size' in file:
                     raw_size = raw_size + file['size']
