@@ -29,7 +29,7 @@ parser.add_argument('--dbhost', default=config('MONGODB_URL', default="mongodb:/
 #
 # parser.add_argument('--dry-run', action='store_true')
 
-parser.add_argument('--no-check-raw', action='store_true')
+parser.add_argument('--check-raw', action='store_true')
 
 parser.add_argument('--fix', action='store_true')
 
@@ -54,28 +54,14 @@ for run in client.runs.find({}).limit( args.count ):
         logging.error("Error running validators, skipping remaining checks")
         continue
 
+
     continue
 
-    if args.no_check_raw:
-        continue
+    ## Skip validations below here for now...
 
     for raw in run.raw:
         if( raw.host == "DMAS" ):
             continue
-
-        ## Drop incorrect db entries
-        if "filename" in run.json:
-            logging.info("!!! Fixing raw entry ")
-
-            result = client.runs.update_one({'basename': run.basename},
-                                            {'$pull': {"raw" : { "host" : "COVIS-NAS"  }}} )
-
-            result = client.runs.update_one({'basename': run.basename},
-                                            {'$push': {"raw" : { "host" : "COVIS-NAS", "filename": run.json["filename"][0] }} })
-
-            result = client.runs.update_one({'basename': run.basename},
-                                            {'$unset': { "filename": "", "host": ""}})
-
 
         logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
 
@@ -120,12 +106,3 @@ for run in client.runs.find({}).limit( args.count ):
                     raw.json['filename'] = new_path
                     result = client.runs.update_one({'basename': run.basename},
                                                         {'$push': {"raw" : raw.json }} )
-
-
-        # Look for a specific known problem where raw filenames
-        # on covis-nas don't have the .7z extension
-        if raw.host == "COVIS-NAS" and re.match(r'^(?!.*[.]7z$).*$',raw.filename):
-            logging.info("!!! found file on COVIS-NAS without extention")
-
-            if args.fix:
-                logging.info("     (fix goes here)")

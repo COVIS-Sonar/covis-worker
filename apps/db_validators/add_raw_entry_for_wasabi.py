@@ -4,7 +4,7 @@ from datetime import datetime
 
 from covis_db import db,hosts,remote,misc
 
-def check_wasabi( args, run ):
+def add_raw_entry_for_wasabi( args, run ):
 
     if run.datetime < datetime(2018,1,1):
         return True
