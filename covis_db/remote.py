@@ -4,6 +4,9 @@ import os
 import re
 import pathlib
 
+import boto3
+import botocore
+
 from decouple import config
 
 import logging
@@ -60,6 +63,9 @@ class MinioAccessor:
     def stats(self):
         return self.minio_client().stat_object(self.bucket, self.path)
 
+    def filesize(self):
+        return self.stats().size
+
     def remove(self):
         return self.minio_client().remove_object(self.bucket, self.path)
 
@@ -75,7 +81,6 @@ class MinioAccessor:
 class CovisNasAccessor(MinioAccessor):
 
     def __init__(self, raw):
-
         super().__init__(bucket="raw",
                          path=raw.filename,
                          config_base=hosts.config_base(raw.host))
@@ -88,6 +93,66 @@ class OldCovisNasAccessor(CovisNasAccessor):
 
     def write(self, io):
         raise "Can't write to the old covis NAS"
+
+
+
+class WasabiNasAccessor(MinioAccessor):
+
+    def __init__(self, raw):
+
+        super().__init__(bucket="covis-raw",
+                         path=raw.filename,
+                         config_base=hosts.config_base(raw.host))
+
+
+class WasabiAccessor:
+
+    def __init__(self,
+                path=None,
+                config_base="WASABI"):
+
+        self.access_key=config("%s_ACCESS_KEY"  % config_base )
+        self.secret_key=config("%s_SECRET_KEY"  % config_base )
+        self.bucket=config("%s_BUCKET" % config_base )
+
+        self.path = path
+
+
+    def boto_object(self):
+        #logging.debug("Accessing Boto3 host: %s" % self.url)
+        s3 = boto3.resource('s3',
+                            endpoint_url = 'https://s3.wasabisys.com',
+                            aws_access_key_id = self.access_key,
+                            aws_secret_access_key = self.secret_key)
+        return s3.Bucket( self.bucket ).Object( self.path )
+
+
+    # def reader(self):
+    #     logging.debug("Getting object at %s / %s" % (self.bucket, self.path))
+    #     return self.boto_bucket().download_fileobj(self.bucket, self.path)
+    #
+    # def write(self, io, length):
+    #     logging.debug("Writing object to %s / %s" % (self.bucket, self.path))
+    #     return self.minio_client().put_object(self.bucket, str(self.path), io, length)
+
+    def filesize(self):
+        return self.boto_object().content_length
+
+    # def remove(self):
+    #     return self.minio_client().remove_object(self.bucket, self.path)
+    #
+    def exists(self):
+        return self.filesize() != None
+
+
+
+
+    #     try:
+    #         stats = self.stats()
+    #         return True
+    #     except NoSuchKey:
+    #         return False
+
 
 
 

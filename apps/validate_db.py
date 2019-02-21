@@ -13,6 +13,8 @@ from decouple import config
 from covis_db import db,hosts,remote,misc
 from os import path
 
+from db_validators.db_validator_main import do_validate
+
 from minio import CopyConditions
 from minio.error import ResponseError
 
@@ -35,15 +37,24 @@ parser.add_argument('--log', metavar='log', nargs='?',
                     default=config('LOG_LEVEL', default='INFO'),
                     help='Logging level')
 
+## Limit of 0 mean "no limit" to limit()
+parser.add_argument('--count', type=int, default=0, help='')
+
 args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
 
 client = db.CovisDB(MongoClient(args.dbhost))
 
-for run in client.runs.find({}):
+for run in client.runs.find({}).limit( args.count ):
     run = db.CovisRun(run, collection=client.runs)
 
     logging.info("Checking basename %s" % run.basename)
+
+    if not do_validate(args,run):
+        logging.error("Error running validators, skipping remaining checks")
+        continue
+
+    continue
 
     if args.no_check_raw:
         continue

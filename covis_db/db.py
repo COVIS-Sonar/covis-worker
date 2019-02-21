@@ -147,29 +147,40 @@ class CovisRun:
                     {'$addToSet': {'raw': raw.json}},
                     return_document=ReturnDocument.AFTER)
 
-    def add_raw(self,host,filename=None,make_filename=False,suffix='.7z'):
+    def add_raw(self,host,filename=None,filesize=None, make_filename=False,suffix='.7z'):
+
         if not hosts.validate_host(host):
+            logging.warning("Invalid host %s" % host)
             return False
 
         if make_filename:
             filename = Path(self.datetime.strftime("%Y/%m/%d/")) / self.basename
             filename = filename.with_suffix(suffix)
 
-        raw = self.find_raw(host,filename)
+        raw = self.find_raw(host)
         if raw:
+            logging.info("Raw already exists, not inserting")
             return False
 
         entry = {'host': host, 'filename': str(filename)}
-        self.update_raw( entry )
+        if filesize:
+            entry["filesize"] = filesize
+
+        if self.collection:
+            self.json = self.collection.find_one_and_update({'basename': self.basename},
+                    {'$addToSet': {'raw': entry}},
+                    return_document=ReturnDocument.AFTER)
 
         return True
 
     @retry_auto_reconnect
     def update_raw( self, entry ):
         if self.collection:
-            self.json = self.collection.find_one_and_update({'basename': self.basename},
-                    {'$addToSet': {'raw': entry}},
-                    return_document=ReturnDocument.AFTER)
+            self.collection.update({
+                                'basename': self.basename,
+                                'raw.host': entry["host"] },
+                    { '$set' : {'raw.$': entry} })
+            self.json = self.collection.find_one({'basename': self.basename})
 
         return CovisRaw(entry)
 
@@ -205,6 +216,13 @@ class CovisRaw:
     def filename(self):
         return self.json['filename']
 
+    @property
+    def filesize(self):
+        if "filesize" in self.json:
+            return self.json["filesize"]
+        else:
+            return None
+
     def accessor(self):
         if hosts.is_old_nas(self.host):
             return remote.OldCovisNasAccessor(self)
@@ -212,9 +230,14 @@ class CovisRaw:
             return remote.CovisNasAccessor(self)
         elif hosts.is_dmas(self.host):
             return remote.DmasAccessor(path=self.filename)
+        elif hosts.is_wasabi(self.host):
+            return remote.WasabiAccessor(path=self.filename)
 
     def reader(self):
         return self.accessor().reader()
+
+    def stats(self):
+        return self.accessor().stats()
 
     def extract(self, workdir):
 

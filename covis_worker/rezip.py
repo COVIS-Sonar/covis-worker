@@ -129,7 +129,7 @@ def rezip(basename, dest_host, dest_fmt='7z', src_host=[], tempdir=None):
             accessor.write(zfile,statinfo.st_size)
 
         logging.info("Upload successful, updating DB")
-        if not run.add_raw(raw.host, raw.filename):
+        if not run.add_raw(raw.host, filename=raw.filename, filesize=statinfo.st_size):
             logging.info("Error inserting into db...")
 
 
@@ -219,8 +219,10 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
             logging.error("7z test on file %s has non-zero return value" % str(outfile))
             return False
 
+        statinfo = os.stat(str(outfile))
+
         run = dbclient.make_run(basename=basename)
-        raw = run.add_raw(dest_host, make_filename=True)
+        raw = run.add_raw(dest_host, make_filename=True, filesize=statinfo.st_size)
         accessor = raw.accessor()
 
         # dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / basename.with_suffix('.7z')
@@ -230,15 +232,16 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
         if not accessor:
             logging.error("Unable to get accessor for %s" % dest_host)
 
-        statinfo = os.stat(str(outfile))
         print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
         with open(str(outfile), 'rb') as zfile:
             accessor.write(zfile,statinfo.st_size)
+
 
         logging.info("Upload successful, updating DB")
         if(contents):
             run.json["contents"] = contents
         run = dbclient.insert_run(run)
+        
         if not run:
             logging.info("Error inserting into db...")
 
