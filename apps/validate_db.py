@@ -40,69 +40,90 @@ parser.add_argument('--log', metavar='log', nargs='?',
 ## Limit of 0 mean "no limit" to limit()
 parser.add_argument('--count', type=int, default=0, help='')
 
+parser.add_argument("basenames", nargs="*")
+
+
 args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
 
 client = db.CovisDB(MongoClient(args.dbhost))
 
-for run in client.runs.find({}).limit( args.count ):
-    run = db.CovisRun(run, collection=client.runs)
 
-    logging.info("Checking basename %s" % run.basename)
+if args.basenames:
 
-    if not do_validate(args,run):
-        logging.error("Error running validators, skipping remaining checks")
-        continue
+    for basename in args.basenames:
 
+        run = client.find(basename)
 
-    continue
-
-    ## Skip validations below here for now...
-
-    for raw in run.raw:
-        if( raw.host == "DMAS" ):
+        if not run:
+            logging.error("Unable to find basename %s in db" % basename)
             continue
 
-        logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
+        if not do_validate(args,run):
+            logging.error("Error running validators, skipping remaining checks")
+            continue
 
-        if not raw.accessor().exists():
-            logging.info("!!! Can't find raw file on host %s" % raw.host)
 
-            if args.fix:
-                run.drop_raw(raw)
+else:
+
+    for run in client.runs.find({}).limit( args.count ):
+        run = db.CovisRun(run, collection=client.runs)
+
+        logging.info("Checking basename %s" % run.basename)
+
+        if not do_validate(args,run):
+            logging.error("Error running validators, skipping remaining checks")
+            continue
+
+
+        continue
+
+        ## Skip validations below here for now...
+
+        for raw in run.raw:
+            if( raw.host == "DMAS" ):
                 continue
 
-        # Check for mis-named files
-        if run.site.lower() == "endeavour":
-            raw_filename = path.basename(raw.filename)
-            logging.info("Checking filename %s" % raw_filename)
+            logging.info("   ... checking raw on %s : %s" % (raw.host, raw.filename))
 
-            if re.match( bad_filename_re, raw_filename ):
-                ## Know these files are all on the NAS as 7z...
-                new_path = misc.make_pathname( run.basename, suffix='.7z' )
-
-                logging.info("!!! Malformed filename %s, renaming to %s" % (raw_filename, new_path))
+            if not raw.accessor().exists():
+                logging.info("!!! Can't find raw file on host %s" % raw.host)
 
                 if args.fix:
-                    accessor = raw.accessor()
-                    mclient = accessor.minio_client()
+                    run.drop_raw(raw)
+                    continue
 
-                    logging.info("Url \"%s\"; Bucket \"%s\".  Copying %s to %s", accessor.url, accessor.bucket, accessor.path, new_path)
-                    try:
-                        # Src path needs to include bucket name?
-                        src_path = "/%s/%s" % (accessor.bucket, accessor.path)
-                        #logging.info("Src path: %s" % src_path)
-                        result = mclient.copy_object( accessor.bucket, new_path, src_path, CopyConditions() )
-                    except ResponseError as err:
-                        logging.info(err)
+            # Check for mis-named files
+            if run.site.lower() == "endeavour":
+                raw_filename = path.basename(raw.filename)
+                logging.info("Checking filename %s" % raw_filename)
 
-                    try:
-                        result = mclient.remove_object( accessor.bucket, accessor.path )
-                    except ResponseError as err:
-                        logging.info(err)
+                if re.match( bad_filename_re, raw_filename ):
+                    ## Know these files are all on the NAS as 7z...
+                    new_path = misc.make_pathname( run.basename, suffix='.7z' )
 
-                    result = client.runs.update_one({'basename': run.basename},
-                                                        {'$pull': {"raw" : raw.json }} )
-                    raw.json['filename'] = new_path
-                    result = client.runs.update_one({'basename': run.basename},
-                                                        {'$push': {"raw" : raw.json }} )
+                    logging.info("!!! Malformed filename %s, renaming to %s" % (raw_filename, new_path))
+
+                    if args.fix:
+                        accessor = raw.accessor()
+                        mclient = accessor.minio_client()
+
+                        logging.info("Url \"%s\"; Bucket \"%s\".  Copying %s to %s", accessor.url, accessor.bucket, accessor.path, new_path)
+                        try:
+                            # Src path needs to include bucket name?
+                            src_path = "/%s/%s" % (accessor.bucket, accessor.path)
+                            #logging.info("Src path: %s" % src_path)
+                            result = mclient.copy_object( accessor.bucket, new_path, src_path, CopyConditions() )
+                        except ResponseError as err:
+                            logging.info(err)
+
+                        try:
+                            result = mclient.remove_object( accessor.bucket, accessor.path )
+                        except ResponseError as err:
+                            logging.info(err)
+
+                        result = client.runs.update_one({'basename': run.basename},
+                                                            {'$pull': {"raw" : raw.json }} )
+                        raw.json['filename'] = new_path
+                        result = client.runs.update_one({'basename': run.basename},
+                                                            {'$push': {"raw" : raw.json }} )
