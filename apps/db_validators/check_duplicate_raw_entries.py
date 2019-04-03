@@ -24,8 +24,6 @@ def run( args, run ):
                 s[r.host].append(r)
 
         for host,raws in s.items():
-            print(host)
-            print(raws)
 
             if len(raws) > 1:
                 logging.info("   !!! Multiple entries for host %s" % host)
