@@ -45,7 +45,7 @@ class CovisDB:
             print("Connecting to %s" % mongo_url)
             self.client = MongoClient(mongo_url)
 
-        self.db = self.client[config('MONGODB_DB', default='covis')]
+        self.db = self.client[config('MONGODB_DB', default='covisprod')]
         self.runs = self.db[config('MONGODB_RUNS_TABLE', default='runs')]
 
     def find(self, basename):
