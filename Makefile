@@ -92,6 +92,10 @@ test_validate_minio: build
 
 
 
+## How to scrape db
+## apps/run_metadata_report.py   --dbhost "mongodb://user:passwd@hostname:27017/covisprod?authSource=covisprod" | tee ${FILENAME}.csv
+##
+
 
 
 
