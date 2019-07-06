@@ -51,6 +51,10 @@ parser.add_argument("--run-local", dest='runlocal', action='store_true')
 
 parser.add_argument('--privkey', default=config("SFTP_PRIVKEY",default=""), nargs='?')
 
+parser.add_argument('--regex',
+                    default=config('FILTER_REGEX', default=""),
+                    nargs='?')
+
 parser.add_argument('sftpurl', action='store')
 
 # parser.add_argument('--skip-dmas', dest='skipdmas', action='store_true',
@@ -63,6 +67,9 @@ logging.basicConfig( level=args.log.upper() )
 if not args.privkey:
     logging.error("Need to specify private key with SFTP_PRIVKEY or --privkey options")
     exit()
+
+pattern = re.compile(args.regex)
+
 
 ## Open db client
 db = db.CovisDB(MongoClient(args.dbhost))

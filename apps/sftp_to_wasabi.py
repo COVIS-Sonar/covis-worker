@@ -48,6 +48,10 @@ parser.add_argument('--privkey-password', dest="privkeypassword",
                     default=config('SFTP_PRIVKEY_PASSWORD', default=""),
                     nargs='?')
 
+parser.add_argument('--regex',
+                    default=config('FILTER_REGEX', default=""),
+                    nargs='?')
+
 parser.add_argument('sftpurl', action='store')
 
 # parser.add_argument('--skip-dmas', dest='skipdmas', action='store_true',
@@ -59,6 +63,8 @@ logging.basicConfig( level=args.log.upper() )
 if not args.bucket:
     logging.error("Must provide bucket or set S3_BUCKET")
     exit()
+
+pattern = re.compile(args.regex)
 
 ## Open db client
 srcurl = urlparse(args.sftpurl)
@@ -116,8 +122,6 @@ def sftp_walk(remotepath):
         newpath = os.path.join(remotepath,folder)
         for x in sftp_walk(newpath):
             yield x
-
-pattern = re.compile("COVIS-20190[6789]")
 
 for path,files in sftp_walk(""):
 
