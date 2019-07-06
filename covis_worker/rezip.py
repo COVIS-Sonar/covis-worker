@@ -223,6 +223,10 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
 
         run = dbclient.make_run(basename=basename)
         raw = run.add_raw(dest_host, make_filename=True, filesize=statinfo.st_size)
+        if not raw or raw==False:
+            logging.error("Unable to get raw for %s" % dest_host)
+            exit()
+
         accessor = raw.accessor()
 
         # dest_filename = Path(run.datetime.strftime("%Y/%m/%d/")) / basename.with_suffix('.7z')
@@ -241,7 +245,7 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
         if(contents):
             run.json["contents"] = contents
         run = dbclient.insert_run(run)
-        
+
         if not run:
             logging.info("Error inserting into db...")
 

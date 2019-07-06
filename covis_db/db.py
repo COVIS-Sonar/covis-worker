@@ -133,9 +133,10 @@ class CovisRun:
             f = self.collection.find_one({'basename': self.basename,
                                             'raw.host': {'$eq': host } } )
 
-            ## Still need to find the matching element in the raw array?
+            ## Find the matching element in the raw array
             if f:
                 for r in f['raw']:
+                    logging.info(r)
                     if r['host'] == host:
                         return CovisRaw(r)
 
@@ -160,7 +161,7 @@ class CovisRun:
         raw = self.find_raw(host)
         if raw:
             logging.info("Raw already exists, not inserting")
-            return False
+            return raw
 
         entry = {'host': host, 'filename': str(filename)}
         if filesize:
@@ -171,7 +172,9 @@ class CovisRun:
                     {'$addToSet': {'raw': entry}},
                     return_document=ReturnDocument.AFTER)
 
-        return True
+        logging.info("Successfully added raw")
+
+        return CovisRaw( entry )
 
     @retry_auto_reconnect
     def update_raw( self, entry ):
