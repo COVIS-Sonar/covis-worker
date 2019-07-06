@@ -8,6 +8,7 @@ import logging
 import shutil
 import stat
 import os
+import re
 
 import boto3
 from botocore.exceptions import ClientError
@@ -116,9 +117,15 @@ def sftp_walk(remotepath):
         for x in sftp_walk(newpath):
             yield x
 
+pattern = re.compile("COVIS-20190[6789]")
+
 for path,files in sftp_walk(""):
 
     for file in files:
+
+        if not pattern.match(file):
+            logging.debug("Skipping %s" % file)
+            continue
 
         logging.info("Considering remote file %s" % file)
 

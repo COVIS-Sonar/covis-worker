@@ -6,6 +6,7 @@ import argparse
 # import json
 import logging
 import shutil
+import re
 
 from pymongo import MongoClient
 # from bson import json_util
@@ -87,7 +88,14 @@ sftp = client.open_sftp()
 logging.info("Changing to path %s" % srcurl.path)
 sftp.chdir(srcurl.path)
 
+pattern = re.compile("COVIS-20190[6789]")
+
+
 for remote_file in sftp.listdir():
+
+    if not pattern.match(remote_file):
+        logging.debug("Skipping %s" % remote_file)
+        continue
 
     logging.info("Considering remote file %s" % remote_file)
 
