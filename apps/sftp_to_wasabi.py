@@ -97,7 +97,7 @@ sftp.chdir(srcurl.path)
 ## Meanwhile, setup the S3 connection as well
 
 s3 = boto3.resource('s3',
-                    endpoint_url = 'https://s3.wasabisys.com',
+                    endpoint_url = 'https://s3.us-east-1.wasabisys.com',
                     aws_access_key_id = config("S3_ACCESS_KEY"),
                     aws_secret_access_key = config("S3_SECRET_KEY"))
 
