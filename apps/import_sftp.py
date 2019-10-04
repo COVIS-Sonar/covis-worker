@@ -95,7 +95,7 @@ sftp = client.open_sftp()
 logging.info("Changing to path %s" % srcurl.path)
 sftp.chdir(srcurl.path)
 
-pattern = re.compile("COVIS-20190[6789]")
+pattern = re.compile(args.regex)
 
 
 for remote_file in sftp.listdir():
