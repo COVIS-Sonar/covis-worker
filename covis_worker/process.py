@@ -1,6 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 from .celery import app
 
+import os
 import logging
 import tempfile
 import json
@@ -12,14 +13,16 @@ from glob import glob
 from urllib.parse import urlparse
 from pathlib import Path
 
-from pycovis.postprocess import runtime
+from pycovis.postprocess import process
 
 from covis_db import hosts,db
 
 from minio import Minio
 
+from . import static_git_info
+
 @app.task
-def process(inputURL, outputURL, autoOutputPath=False ):
+def do_postprocess(inputURL, outputURL, autoOutputPath=False ):
 
             # job_prefix = None,
             # process_json = None,
@@ -30,15 +33,42 @@ def process(inputURL, outputURL, autoOutputPath=False ):
 
     logging.info("Processing data from %s" % inputURL)
 
-    outputPath = "/output"
+    outputPath = None
 
     input = urlparse(inputURL)
     output = urlparse(outputURL)
 
-    if input.scheme == '':
-        inputPath = Path(args.inputFile).resolve()
+    ## Validate output before starting
+    outputMinioClient = None
 
-        rawPath = uncompressCovisData(inputPath,workdir)
+    ## Validate the output first, rather than catch it at the end
+    if output.scheme == '':
+        ## If writing to file, work directly in the final destination
+        outputPath = Path(output.path)
+
+    elif output.scheme == 's3':
+        s3host = config('OUTPUT_S3_HOST', default="")
+        if not s3host:
+            logging.warning("s3:// output URL provided but OUTPUT_S3_HOST not provided")
+            return
+
+        outputMinioClient = Minio(s3host,
+                      access_key=config('OUTPUT_S3_ACCESS_KEY', default=""),
+                      secret_key=config('OUTPUT_S3_SECRET_KEY', default=""),
+                      secure=False)
+
+
+    ## If not otherwise set while validating output options
+    if not outputPath:
+        outputPath = workdir / "output"
+        outputPath.mkdir(exist_ok=True)
+
+
+
+    if input.scheme == '':
+        rawArchive = Path(args.inputFile).resolve()
+
+        #rawPath = uncompressCovisData(inputPath,workdir)
 
     elif input.scheme == 's3':
         s3host = config('RAW_S3_HOST', default="")
@@ -56,13 +86,13 @@ def process(inputURL, outputURL, autoOutputPath=False ):
                       secure=False)
 
         basename = Path(path).name
-        downloadDest = workdir / basename
+        rawArchive = workdir / basename
 
-        print("Retrieving path %s from bucket %s to %s" % (path, bucket, downloadDest))
+        print("Retrieving path %s from bucket %s to %s" % (path, bucket, rawArchive))
 
-        minioClient.fget_object(bucket_name=bucket, object_name=path, file_path= str(downloadDest) )
+        minioClient.fget_object(bucket_name=bucket, object_name=path, file_path= str(rawArchive) )
 
-        rawPath = uncompressCovisData(downloadDest, workdir)
+        #rawPath = uncompressCovisData(downloadDest, workdir)
 
     elif input.scheme == 'db':
 
@@ -107,16 +137,53 @@ def process(inputURL, outputURL, autoOutputPath=False ):
     #     plot_json = plot_tempfile.name
 
 
-    if not rawPath:
+    if not rawArchive:
         logging.error("Could not find input file")
         return
 
-    with runtime.Runtime() as pp:
-        metadata = pp.postproc_metadata()
 
-        print("Processing %s to %s" % (rawPath, outputPath))
 
-        pp.process( rawPath, outputPath )
+    # with runtime.Runtime() as pp:
+    #     metadata = pp.postproc_metadata()
+
+    print("Processing COVIS archive %s to path %s" % (rawArchive, outputPath))
+
+    process.process( rawArchive, outputPath )
+
+    metadata = process.postprocessing_metadata()
+
+    ## Add metadata about the covis-worker process
+    static_git_info.add_static_git_info( metadata )
+
+    ## Write out metadata
+    metadata_file = outputPath / "metadata.json"
+    logging.info("Metadata file: %s" % metadata_file)
+    with open( metadata_file, 'w') as m:
+        json.dump(metadata, m, indent=2)
+
+
+    if outputMinioClient:
+        ## Upload to Minio
+
+        outbucket = output.netloc
+
+        if not outputMinioClient.bucket_exists( outbucket ):
+            outputMinioClient.make_bucket(outbucket)
+
+
+        print("Results in outputPath:")
+
+        for outputFile in os.listdir( outputPath ):
+
+            print("Outputfile: %s" % outputFile)
+
+            ## \TODO  generate correct outputName
+            outpath = Path(output.path) / outputFile
+            outpath = str(outpath).strip("/")  ## Minio client doesn't like leading slash
+
+            outputMinioClient.fput_object(file_path=(outputPath/outputFile), bucket_name=outbucket, object_name=outpath)
+
+            print("Uploaded %s to bucket %s, path %s" % (outputFile,outbucket,outpath) )
 
 
     # matfile = None
@@ -140,11 +207,7 @@ def process(inputURL, outputURL, autoOutputPath=False ):
     # logging.info("Resulting plot file: %s" % imgfile)
 
             #
-            # ## Write out metadata
-            # metadata_file = str(Path(workdir) / "metadata.json")
-            # logging.info("Metadata file: %s" % metadata_file)
-            # with open( metadata_file, 'w') as m:
-            #     json.dump(metadata, m, indent=2)
+
             #
             # if "minio" in destination:
             #
@@ -201,16 +264,16 @@ def process(inputURL, outputURL, autoOutputPath=False ):
 ## directory to unpack the data into.
 ##
 ## Returns a path to the unpacked COVIS data
-def uncompressCovisData( inputPath, tempdir ):
-    ## Unpack archive in Python
-    Archive(inputPath).extractall( tempdir )
-
-    ## \TODO  Need a way to find the directory name found in the archive rather
-    ## than this open-loop version
-    for p in Path(tempdir).rglob("*/"):
-        print(p)
-        if p.is_dir():
-            print("Returning %s" % p)
-            return p
-
-    return None
+# def uncompressCovisData( inputPath, tempdir ):
+#     ## Unpack archive in Python
+#     Archive(inputPath).extractall( tempdir )
+#
+#     ## \TODO  Need a way to find the directory name found in the archive rather
+#     ## than this open-loop version
+#     for p in Path(tempdir).rglob("*/"):
+#         print(p)
+#         if p.is_dir():
+#             print("Returning %s" % p)
+#             return p
+#
+#     return None

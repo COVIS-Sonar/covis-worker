@@ -114,14 +114,14 @@ for input in args.inputs:
     if not args.dryrun:
 
         if args.runlocal:
-            job = process.process( input, output,
+            job = process.do_postprocess( input, output,
                                     autoOutputPath = args.autoOutputPath )
 
                                     # job_prefix = prefix,
                                     # process_json = config.get("process_json", ""),
                                     # plot_json = config.get("plot_json", ""))
         else:
-            job = process.process( input, output,
+            job = process.do_postprocess( input, output,
                                     autoOutputPath = args.autoOutputPath )
 
             # job = process.process.delay(r['basename'],config["dest"] )

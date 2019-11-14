@@ -13,9 +13,25 @@ help:
 	@echo "make prod        Label current test as \"prod\" and push to \"${PROD_TAG}\""
 
 
+GITREV=${shell git rev-parse HEAD }
+GITTAG=${shell git describe --tags }
+GITDIRTY_proc=${shell git status --porcelain --untracked-files=no }
+ifeq ($(.SHELLSTATUS),0)
+  GITDIRTY = "False"
+else
+	GITDIRTY = "True"
+endif
+
+
+covis_worker/static_git_info.py:
+	echo "def add_static_git_info( d ):\n" > $@
+	printf "   d[\"covis_worker_gitrev\"] = '%s'\n" ${GITREV} >> $@
+	printf "   d[\"covis_worker_gittags\"] = '%s'\n" ${GITTAG} >> $@
+	printf "   d[\"covis_worker_git_dirty\"] = %s\n" ${GITDIRTY} >> $@
+
 
 ## Jobs related to building __test__ image
-docker:
+docker: covis_worker/static_git_info.py
 	docker build -t ${TEST_TAG} .
 
 force:
@@ -57,7 +73,10 @@ DOCKER_NETWORK= testdata_covistest
 
 CLIENT_ENV = -e RAW_S3_HOST=covistestdata:9000 \
 							-e RAW_S3_ACCESS_KEY=covistestdata \
-							-e RAW_S3_SECRET_KEY=covistestdata
+							-e RAW_S3_SECRET_KEY=covistestdata \
+							-e OUTPUT_S3_HOST=covistestdata:9000 \
+							-e OUTPUT_S3_ACCESS_KEY=covistestdata \
+							-e OUTPUT_S3_SECRET_KEY=covistestdata
 
 DOCKER_RUN=docker run --rm -it --network ${DOCKER_NETWORK} ${CLIENT_ENV}
 DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
@@ -68,7 +87,9 @@ test_worker: build up
 	docker run --rm -it --env-file docker.env --network covis_default	${TEST_TAG}
 
 postprocess_diffuse3.7z_local: build
-	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py --log DEBUG --run-local s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z --output s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3/
+	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py --log DEBUG \
+					--run-local s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
 postprocess_diffuse3.7z_worker: build
 	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
@@ -190,7 +211,7 @@ import_seed_data: seed_data.bson
 		mongorestore -d covis -c runs --drop --dir=- < seed_data/seed_data.bson
 
 
-.PHONY: impart_dmas import_covis_nas import_seed_data
+.PHONY: impart_dmas import_covis_nas import_seed_data  covis_worker/static_git_info.py
 
 
 # Dump mongodb to a JSON test file
