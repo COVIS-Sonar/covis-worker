@@ -34,7 +34,5 @@ ENV LD_LIBRARY_PATH=$MATLAB_LD_LIBRARY_PATH
 ## Add ~/.local/bin as that's where pip-installed cmds end up
 ENV PATH=/home/covis/.local/bin:${PATH}
 
-## Back to default entrypoint
-WORKDIR /home/covis
 ENTRYPOINT []
 CMD ["make", "worker"]

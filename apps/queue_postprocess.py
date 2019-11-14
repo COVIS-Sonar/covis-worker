@@ -121,7 +121,7 @@ for input in args.inputs:
                                     # process_json = config.get("process_json", ""),
                                     # plot_json = config.get("plot_json", ""))
         else:
-            job = process.do_postprocess( input, output,
+            job = process.do_postprocess.delay( input, output,
                                     autoOutputPath = args.autoOutputPath )
 
             # job = process.process.delay(r['basename'],config["dest"] )

@@ -50,8 +50,8 @@ test: test_up reset_test_db
 	pytest
 
 # -V drops anonymous volumes so mongodb data isn't persisted
-up:
-	docker-compose -p covis up  -V
+# up:
+# 	docker-compose -p covis up  -V
 
 ## The services in docker_compose.yml must exist for testing
 drop_test_db:
@@ -83,22 +83,24 @@ DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
 # Attach a test worker to the covis_Default test network ... for use with non-"local"
 # jobs below
-test_worker: build up
-	docker run --rm -it --env-file docker.env --network covis_default	${TEST_TAG}
+test_worker:
+	${DOCKER_RUN_TEST}
 
-postprocess_diffuse3.7z_local: build
-	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py --log DEBUG \
+postprocess_diffuse3.7z_local:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
 					--run-local s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
 					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
-postprocess_diffuse3.7z_worker: build
-	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py  --log INFO APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+postprocess_diffuse3.7z_worker:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
+					s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
-postprocess_local_job: build
-	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+postprocess_local_job:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 postprocess_job: build
-	${DOCKER_RUN_TEST} covis-worker/apps/queue_postprocess.py --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log INFO --job test-job  APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
 
 ## Use test docker image to import (and potentially rezip) files
 ## from the test SFTP site

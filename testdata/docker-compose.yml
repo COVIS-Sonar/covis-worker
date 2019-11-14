@@ -5,6 +5,19 @@ networks:
     attachable: true
 
 services:
+
+  rabbitmq:
+    image: 'bitnami/rabbitmq:3.7'
+    labels:
+      kompose.service.type: nodeport
+    networks:
+      - covistest
+    ports:
+      - '4369:4369'
+      - '5672:5672'
+      - '25672:25672'
+      - '15672:15672'
+
   covistestdata:
     image: minio/minio
     volumes:
