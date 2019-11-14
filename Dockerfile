@@ -1,8 +1,10 @@
-FROM amarburg/covis-postprocess:R2018a
+FROM amarburg/covis-postprocess:latest
 
-RUN apt-get update && apt install -yq --no-install-recommends \
-                            libarchive-dev netcat p7zip-full && \
-      rm -rf /var/lib/apt/lists/*
+## For speed when building _this_ image, any .deb packages
+## should be added in postprocessing/Deploy/Dockerfile
+#RUN apt-get update && apt install -yq --no-install-recommends \
+#                            libarchive-dev netcat p7zip-full && \
+#      rm -rf /var/lib/apt/lists/*
 
 # Pre-install dependencies by hand so they get cached in an earlier
 #     Docker layer
@@ -10,26 +12,29 @@ RUN pip3 install --upgrade celery flower minio pymongo libarchive \
             python-decouple requests boto3 paramiko
 
 # Install the local python packages
-WORKDIR /code/covis-worker
-ADD setup.py Makefile wait-for-it.sh ./
-ADD apps/          ./apps/
-ADD covis_db/      ./covis_db/
-ADD covis_worker/  ./covis_worker/
-ADD seed_data/seed_data.bson ./
+
+WORKDIR /home/covis/covis-worker
+USER root
+RUN chown covis:covis /home/covis/covis-worker
+
+USER covis
+COPY --chown=covis:covis  setup.py Makefile wait-for-it.sh ./
+COPY --chown=covis:covis  apps/          ./apps/
+COPY --chown=covis:covis  covis_db/      ./covis_db/
+COPY --chown=covis:covis  covis_worker/  ./covis_worker/
+COPY --chown=covis:covis  seed_data/seed_data.bson ./
 
 ## Make input/ directory local to working directory.
-RUN ln -s ~/input .
+#RUN ln -s /home/covis/input .
 
 RUN pip3 install -e .
 
-## Switch to non-root user "covis"
-RUN groupadd -g 999 covis && \
-    useradd -r -u 999 -g covis covis
-RUN chown -R covis:covis /code
-USER covis
-
 ENV LD_LIBRARY_PATH=$MATLAB_LD_LIBRARY_PATH
 
+## Add ~/.local/bin as that's where pip-installed cmds end up
+ENV PATH=/home/covis/.local/bin:${PATH}
+
 ## Back to default entrypoint
+WORKDIR /home/covis
 ENTRYPOINT []
 CMD ["make", "worker"]

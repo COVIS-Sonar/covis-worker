@@ -1,0 +1,24 @@
+version: '3.7'
+
+networks:
+  covistest:
+    attachable: true
+
+services:
+  covistestdata:
+    image: minio/minio
+    volumes:
+      - .:/data
+    ports:
+      - "9001:9000"
+    networks:
+      - covistest
+    environment:
+      MINIO_ACCESS_KEY: covistestdata
+      MINIO_SECRET_KEY: covistestdata
+    command: server /data
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    #   interval: 30s
+    #   timeout: 20s
+    #   retries: 3
