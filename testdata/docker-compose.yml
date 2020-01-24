@@ -17,6 +17,8 @@ services:
       - '5672:5672'
       - '25672:25672'
       - '15672:15672'
+    environment:
+      RABBITMQ_DISK_FREE_LIMIT: 1000000000
 
   covistestdata:
     image: minio/minio
