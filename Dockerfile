@@ -6,6 +6,9 @@ FROM amarburg/covis-postprocess:latest
 #                            libarchive-dev netcat p7zip-full && \
 #      rm -rf /var/lib/apt/lists/*
 
+## Add ~/.local/bin as that's where pip-installed cmds end up
+ENV PATH=/home/covis/.local/bin:${PATH}
+
 # Pre-install dependencies by hand so they get cached in an earlier
 #     Docker layer
 RUN pip3 install --upgrade celery flower minio pymongo libarchive \
@@ -30,9 +33,6 @@ COPY --chown=covis:covis  seed_data/seed_data.bson ./
 RUN pip3 install -e .
 
 ENV LD_LIBRARY_PATH=$MATLAB_LD_LIBRARY_PATH
-
-## Add ~/.local/bin as that's where pip-installed cmds end up
-ENV PATH=/home/covis/.local/bin:${PATH}
 
 ENTRYPOINT []
 CMD ["make", "worker"]
