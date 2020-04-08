@@ -101,7 +101,7 @@ sftp.chdir(srcurl.path)
 
 for remote_file in sftp.listdir():
 
-    if not pattern.match(remote_file):
+    if not pattern.search(remote_file):
         logging.debug("Skipping %s" % remote_file)
         continue
 
