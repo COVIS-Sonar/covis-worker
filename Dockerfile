@@ -29,7 +29,6 @@ COPY --chown=covis:covis  setup.py Makefile wait-for-it.sh ./
 COPY --chown=covis:covis  apps/                    ./apps/
 COPY --chown=covis:covis  covis_db/                ./covis_db/
 COPY --chown=covis:covis  covis_worker/            ./covis_worker/
-COPY --chown=covis:covis  seed_data/seed_data.*    ./seed_data/
 COPY --chown=covis:covis  Docker.makefile          Makefile
 
 RUN pip3 install -e .

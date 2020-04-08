@@ -35,8 +35,27 @@ local_pytest:
 
 # == Tasks related to testing in the Docker image ====================
 #
+
+COVISTEST_NETWORK= test_stack_covistest
+
+CLIENT_ENV =
+							# -e RAW_S3_HOST=covistestdata:9000 \
+							# -e RAW_S3_ACCESS_KEY=covistestdata \
+							# -e RAW_S3_SECRET_KEY=covistestdata \
+							# -e OUTPUT_S3_HOST=covistestdata:9000 \
+							# -e OUTPUT_S3_ACCESS_KEY=covistestdata \
+							# -e OUTPUT_S3_SECRET_KEY=covistestdata
+
+DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV}
+DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
+
 pytest: check_test_docker
 	pytest
+
+## Use test docker image to import (and potentially rezip) files from the test SFTP site
+test_sftp_import: docker  reset_test_db check_test_stack_ssh_keys
+	${DOCKER_RUN} -v $(CURDIR)/test_stack/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
+							apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 # == Test for existence of required docker services =================
 
@@ -56,26 +75,26 @@ check_test_data:
   fi
 
 ## Generate SSH keys for test SFTP server in Docker-Compose and pytest
-check_test_stack_ssh_keys: tmp/ssh_keys/id_rsa.pub
+check_test_stack_ssh_keys: ${TESTDATA_DIR}/tmp/ssh_keys/id_rsa.pub
 
-tmp/ssh_keys/id_rsa.pub:
-	mkdir -p tmp/ssh_keys/
-	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
+TEST_STACK_SSH_DIR=${TESTDATA_DIR}/tmp/ssh_keys
+
+${TESTDATA_DIR}/tmp/ssh_keys/id_rsa.pub:
+	mkdir -p ${TEST_STACK_SSH_DIR}
+	ssh-keygen -N "" -t ed25519 -f ${TEST_STACK_SSH_DIR}/ssh_host_ed25519_key < /dev/null
+	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/ssh_host_rsa_key < /dev/null
+	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/id_rsa < /dev/null
 
 # == Tasks for bootstrapping the database in the test network ==
 
-DOCKER_NETWORK=${TESTDATA_DIR}_covistest
-
 ## Load test data into the MongoDB test database
-import_test_data:
-	cat seed_data/seed_data.json | docker exec -i \
+reset_test_db_dmas_oldnas:
+	cat test_stack/db_dumps/dmas_oldnas.json | docker exec -i \
  						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
  						mongoimport --verbose --host mongodb:27017 \
 						 						--db covis --collection runs --drop --jsonArray
 
-dump_test_stack:
+dump_test_db:
 	docker exec -i \
  						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
  						mongoexport --host mongodb:27017 \
@@ -101,7 +120,7 @@ covis_worker/static_git_info.py:
 
 .PHONY: help \
 	 			docker force_docker push \
-				import_seed_data \
+				reset_test_db dump_test_db \
 				check_test_data check_test_docker check_test_stack_ssh_keys run_test_stack \
 				local_pytest
 
@@ -123,24 +142,14 @@ ${TEST_DATA}/test_db.bson: ${TEST_DATA}/old_covis_nas1.txt ${TEST_DATA}/covis_dm
 	apps/import_file_list.py --covis-nas old-covis-nas1 --log INFO ${TEST_DATA}/old_covis_nas1.txt
 	apps/import_file_list.py --dmas --log INFO ${TEST_DATA}/covis_dmas.json
 	mongodump -d covis -c runs -o - > $@
-
-reset_test_db: ${TEST_DATA}/test_db.bson
-	mongorestore -d covis -c runs --drop --dir=- < $<
+#
+# reset_test_db: ${TEST_DATA}/test_db.bson
+# 	mongorestore -d covis -c runs --drop --dir=- < $<
 
 
 
 ## Run sample jobs against local test_up netestdata_and_compose_covistesttwork
-DOCKER_NETWORK= testdata_covistest
 
-CLIENT_ENV = -e RAW_S3_HOST=covistestdata:9000 \
-							-e RAW_S3_ACCESS_KEY=covistestdata \
-							-e RAW_S3_SECRET_KEY=covistestdata \
-							-e OUTPUT_S3_HOST=covistestdata:9000 \
-							-e OUTPUT_S3_ACCESS_KEY=covistestdata \
-							-e OUTPUT_S3_SECRET_KEY=covistestdata
-
-DOCKER_RUN=docker run --rm -it --network ${DOCKER_NETWORK} ${CLIENT_ENV}
-DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
 # Attach a test worker to the covis_Default test network ... for use with non-"local"
 # jobs below
@@ -165,9 +174,9 @@ postprocess_job: build
 
 ## Use test docker image to import (and potentially rezip) files
 ## from the test SFTP site
-test_sftp_import: build reset_test_db test_ssh_keys
-	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
-						apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+# test_sftp_import: build reset_test_db test_ssh_keys
+# 	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
+# 						apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 test_rezip_local: build reset_test_db
 	${DOCKER_RUN} -v $(CURDIR)/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
@@ -207,7 +216,7 @@ sftp:
 # reset_large_db: test/data/large_db_dump.bson
 # 	mongorestore -d covis -c runs --drop --dir=- < $^
 
-.PHONY: test test_up drop_test_db reset_test_db
+#.PHONY: test test_up drop_test_db reset_test_db
 
 
 

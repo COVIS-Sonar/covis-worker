@@ -1,3 +1,5 @@
-testdata_and_compose/
+test_stack/
+seed_data/
+notebooks/
 .git/
 backup_prod/
