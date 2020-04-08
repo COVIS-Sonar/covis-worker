@@ -251,8 +251,6 @@ test_validate_minio: build
 sftp:
 	sftp -P 2222 -i tmp/ssh_keys/id_rsa covis@localhost
 
-.PHONY: test_ssh_keys
-
 
 ## Builds the large db
 # bootstrap_large_db: test/data/covis_dmas.json
