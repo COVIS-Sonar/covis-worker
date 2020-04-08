@@ -1,40 +1,22 @@
 
-TEST_DATA=covis-test-data/
-
 ## Docker-related tasks
 TEST_TAG=amarburg/covis-worker:test
 PROD_TAG=amarburg/covis-worker:prod
 
+default: help
 
 help:
-	@echo "make build       Build test covis-worker docker image \"${TEST_TAG}\""
-	@echo "make force       Build test covis-worker docker image \"${TEST_TAG}\" with --no-cache"
-	@echo "make push        Push test covis-worker docker image \"${TEST_TAG}\""
-	@echo "make prod        Label current test as \"prod\" and push to \"${PROD_TAG}\""
+	@echo "make docker        Build test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make force_docker  Build test covis-worker docker image \"${TEST_TAG}\" with --no-cache"
+	@echo "make push          Push test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make prod          Label current test as \"prod\" and push to \"${PROD_TAG}\""
 
-
-GITREV=${shell git rev-parse HEAD }
-GITTAG=${shell git describe --tags }
-GITDIRTY_proc=${shell git status --porcelain --untracked-files=no }
-ifeq ($(.SHELLSTATUS),0)
-  GITDIRTY = "False"
-else
-	GITDIRTY = "True"
-endif
-
-
-covis_worker/static_git_info.py:
-	echo "def add_static_git_info( d ):\n" > $@
-	printf "   d[\"covis_worker_gitrev\"] = '%s'\n" ${GITREV} >> $@
-	printf "   d[\"covis_worker_gittags\"] = '%s'\n" ${GITTAG} >> $@
-	printf "   d[\"covis_worker_git_dirty\"] = %s\n" ${GITDIRTY} >> $@
-
-
-## Jobs related to building __test__ image
+# == Tasks related to building __test__ image =======================
+#
 docker: covis_worker/static_git_info.py
 	docker build -t ${TEST_TAG} .
 
-force:
+force_docker: covis_worker/static_git_info.py
 	docker build --no-cache -t ${TEST_TAG} .
 
 push: build
@@ -45,9 +27,85 @@ prod: build
 	docker tag ${TEST_TAG} ${PROD_TAG}
 	docker push ${PROD_TAG}
 
-## Run pytest
-test: test_up reset_test_db
+
+# == Tasks related to testing locally (not in Docker) ===============
+# Run pytest
+local_pytest:
 	pytest
+
+# == Tasks related to testing in the Docker image ====================
+#
+pytest: check_test_docker
+	pytest
+
+# == Test for existence of required docker services =================
+
+TESTDATA_DIR=test_stack
+
+run_test_stack: check_test_data
+	cd ${TESTDATA_DIR} && docker-compose up
+
+check_test_stack: check_test_data check_test_stack_ssh_keys
+	if ! docker ps --quiet --filter name=covistestdata --format "{{.Names}}" | grep "covistestdata" ; then \
+		echo "Test docker network not running.  \"make run_test_docker\" or \"cd testdata && docker-compose up\""; \
+	fi
+
+check_test_data:
+	@if [ ! -f ${TESTDATA_DIR}/covis-nas/covis-raw/2019/10/24/COVIS-20191024T000002-imaging1.7z ]; then \
+		echo \"${TESTDATA_DIR}/\" not populated, please \"cd ${TESTDATA_DIR} && make download\"; \
+  fi
+
+## Generate SSH keys for test SFTP server in Docker-Compose and pytest
+check_test_stack_ssh_keys: tmp/ssh_keys/id_rsa.pub
+
+tmp/ssh_keys/id_rsa.pub:
+	mkdir -p tmp/ssh_keys/
+	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
+	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
+
+# == Tasks for bootstrapping the database in the test network ==
+
+DOCKER_NETWORK=${TESTDATA_DIR}_covistest
+
+## Load test data into the MongoDB test database
+import_test_data:
+	cat seed_data/seed_data.json | docker exec -i \
+ 						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
+ 						mongoimport --verbose --host mongodb:27017 \
+						 						--db covis --collection runs --drop --jsonArray
+
+dump_test_stack:
+	docker exec -i \
+ 						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
+ 						mongoexport --host mongodb:27017 \
+						--db covis --collection runs
+
+# == Tasks related to extracting Git metadata ==
+#
+GITREV=${shell git rev-parse HEAD }
+GITTAG=${shell git describe --tags }
+GITDIRTY_proc=${shell git status --porcelain --untracked-files=no }
+ifeq ($(.SHELLSTATUS),0)
+  GITDIRTY = "False"
+else
+	GITDIRTY = "True"
+endif
+
+covis_worker/static_git_info.py:
+	echo "def add_static_git_info( d ):\n" > $@
+	printf "   d[\"covis_worker_gitrev\"] = '%s'\n" ${GITREV} >> $@
+	printf "   d[\"covis_worker_gittags\"] = '%s'\n" ${GITTAG} >> $@
+	printf "   d[\"covis_worker_git_dirty\"] = %s\n" ${GITDIRTY} >> $@
+
+
+.PHONY: help \
+	 			docker force_docker push \
+				import_seed_data \
+				check_test_data check_test_docker check_test_stack_ssh_keys run_test_stack \
+				local_pytest
+
+# == Old / less organized tasks =============================================
 
 # -V drops anonymous volumes so mongodb data isn't persisted
 # up:
@@ -56,6 +114,8 @@ test: test_up reset_test_db
 ## The services in docker_compose.yml must exist for testing
 drop_test_db:
 	mongo covis --eval 'db.runs.drop()'
+
+
 
 ## Builds the small db
 ${TEST_DATA}/test_db.bson: ${TEST_DATA}/old_covis_nas1.txt ${TEST_DATA}/covis_dmas.json
@@ -68,7 +128,8 @@ reset_test_db: ${TEST_DATA}/test_db.bson
 	mongorestore -d covis -c runs --drop --dir=- < $<
 
 
-## Run sample jobs against local test_up network
+
+## Run sample jobs against local test_up netestdata_and_compose_covistesttwork
 DOCKER_NETWORK= testdata_covistest
 
 CLIENT_ENV = -e RAW_S3_HOST=covistestdata:9000 \
@@ -127,14 +188,6 @@ test_validate_minio: build
 
 
 
-## Generate SSH keys for test SFTP server in Docker-Compose and pytest
-test_ssh_keys: tmp/ssh_keys/id_rsa.pub
-
-tmp/ssh_keys/id_rsa.pub:
-	mkdir -p tmp/ssh_keys/
-	ssh-keygen -t ed25519 -f tmp/ssh_keys/ssh_host_ed25519_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/ssh_host_rsa_key < /dev/null
-	ssh-keygen -t rsa -b 4096 -f tmp/ssh_keys/id_rsa < /dev/null
 
 ## Sftp into the sftp test server created by docker-compose.yml
 sftp:
@@ -155,30 +208,6 @@ sftp:
 # 	mongorestore -d covis -c runs --drop --dir=- < $^
 
 .PHONY: test test_up drop_test_db reset_test_db
-
-
-#---- Targets designed to be run _INSIDE THE DOCKER CONTAINER_ ----
-
-## Use the ENV variable preferentially, otherwise here's a default
-CELERY_BROKER ?= amqp://user:bitnami@localhost
-
-flower:
-	celery flower -A covis_worker --broker=${CELERY_BROKER}
-
-worker:
-	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
-
-idle:
-	while true; do sleep 3600; done
-
-covis_import_sftp_to_nas:
-	apps/import_sftp.py --run-local --log INFO sftp://covis@pi.ooirsn.uw.edu/data/COVIS
-
-covis_import_sftp_to_s3:
-	apps/sftp_to_wasabi.py --bucket covis-raw --log INFO ftp://covis@pi.ooirsn.uw.edu/data/COVIS
-	apps/sftp_to_wasabi.py --bucket covis-eng --log INFO ftp://covis@pi.ooirsn.uw.edu/data/COVIS-ENG
-
-
 
 
 
@@ -208,12 +237,9 @@ import_covis_nas: seed_data/covis-nas?.txt
 
 seed_data/seed_data.bson: drop_db import_dmas import_covis_nas
 	mongodump -d covis -o - > seed_data/seed_data.bson
-
-import_seed_data: seed_data.bson
-		mongorestore -d covis -c runs --drop --dir=- < seed_data/seed_data.bson
-
-
-.PHONY: impart_dmas import_covis_nas import_seed_data  covis_worker/static_git_info.py
+#
+# import_seed_data: seed_data.bson
+# 		mongorestore -d covis -c runs --drop --dir=- < seed_data/seed_data.bson
 
 
 # Dump mongodb to a JSON test file
@@ -239,9 +265,3 @@ backup_prod:
 ##   docker run -p 27017:27017 bitnami/mongodb:3.6
 bootstrap_local:
 	mongorestore -v --gzip --drop backup_prod
-
-
-
-.PHONY:  help backup restore dump \
-			import_test get_test_data build drone build push \
-			docker_process_test

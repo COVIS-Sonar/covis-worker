@@ -252,8 +252,7 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
         ## Ugliness
         run.insert_raw(raw)
 
-
-
+        return run
 
 
 def tarInfoToContentsEntry(ti, workdir):

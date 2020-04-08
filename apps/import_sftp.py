@@ -55,6 +55,10 @@ parser.add_argument('--regex',
                     default=config('FILTER_REGEX', default=""),
                     nargs='?')
 
+parser.add_argument('--postprocess',
+                    default=False,
+                    action="store_true")
+
 parser.add_argument('sftpurl', action='store')
 
 # parser.add_argument('--skip-dmas', dest='skipdmas', action='store_true',
@@ -123,8 +127,13 @@ for remote_file in sftp.listdir():
             continue
 
         if args.runlocal:
-            job = rezip.rezip_from_sftp(srcurl.geturl() + "/" + remote_file,args.desthost,
+            run = rezip.rezip_from_sftp(srcurl.geturl() + "/" + remote_file, args.desthost,
                                         privkey=args.privkey)
+
+
+            if args.postprocess:
+                logging.info(" .... automatically postprocessing")
+
         else:
             job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
@@ -156,118 +165,3 @@ for remote_file in sftp.listdir():
         #
         # ## Ugliness
         # run.insert_raw(raw)
-
-
-
-
-
-
-## If given, load JSON, otherwise initialize an empty config struct
-#
-# config = {}
-#
-# if args.config:
-#     if Path(args.config).exist:
-#         with open(args.config) as fp:
-#             logging.info("Loading configuration from %s" % args.config)
-#             config = json.load(args.config)
-#
-#     elif args.config == '-':
-#         config = json.load(sys.stdin)
-#
-#
-# if args.basename:
-#     config["selector"] = { "basename": { "$in": args.basename } }
-#
-# if args.job:
-#     config["job_id"] = args.job
-#
-#
-# if not config["selector"]:
-#     logging.error("No basenames provided")
-#     exit()
-#
-# ## Default
-# config["dest"] = { "minio": { "host": "covis-nas",
-#                             "bucket": "postprocessed" }}
-#
-# # Validate configuration
-# if "dest" not in config:
-#     logging.error("No destination provided")
-#     exit()
-#
-# prefix = ""
-# if "job_id" in config:
-#     prefix = "by_job_id/%s" % config["job_id"]
-# else:
-#     prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
-#
-# ## If specified, load the JSON configuration
-# with client.runs.find(config["selector"]) as results:
-#
-#     for r in results:
-#         print(r)
-#
-#         if not args.dryrun:
-#
-#             if args.runlocal:
-#                 job = process.process(r['basename'], config["dest"],
-#                                         job_prefix = prefix,
-#                                         process_json = config.get("process_json", ""),
-#                                         plot_json = config.get("plot_json", ""))
-#             else:
-#                 job = process.process.delay(r['basename'],config["dest"],
-#                                         job_prefix = prefix,
-#                                         process_json = config.get("process_json", ""),
-#                                         plot_json = config.get("plot_json", ""))
-#         else:
-#             print("Dry run, skipping...")
-#
-# # # Validate destination hostname
-# # if not hosts.validate_host(args.desthost):
-# #     print("Can't understand destination host \"%s\"" % args.desthost)
-# #     exit()
-# #
-#
-# #
-# # # Find run which are _not_ on NAS
-# # result = client.runs.aggregate( [
-# #     {"$match": { "$and":
-# #                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } }
-# #                 ]
-# #     } }
-# # ])
-# #
-# # #                  { "mode":     {"$eq": "DIFFUSE"}} ]
-# #
-# #
-# # # result = client.runs.aggregate( [
-# # #     {"$match": { "$and":
-# # #                 [ { "raw.host": { "$not": { "$eq": "COVIS-NAS" } } } ]
-# # #     } }
-# # # ])
-# #
-# # i = 0
-# # for elem in result:
-# #
-# #     run = db.CovisRun(elem)
-# #
-# #     logging.info("Considering basename %s" % (run.basename))
-# #
-# #     locations = [raw.host for raw in run.raw]
-# #
-# #     if args.skipdmas and locations == ["DMAS"]:
-# #         logging.info("    File only on DMAS, skipping...")
-# #         continue
-# #
-# #
-# #     logging.info("Queuing rezip job for %s on %s" % (run.basename, ','.join(locations)))
-# #
-# #     if not args.dryrun:
-# #         job = rezip.rezip.delay(run.basename,args.desthost)
-# #     else:
-# #         print("Dry run, skipping...")
-# #
-# #     i = i+1
-# #     if args.count > 0 and i > args.count:
-# #         break
