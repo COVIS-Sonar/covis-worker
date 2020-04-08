@@ -59,10 +59,15 @@ pytest: check_test_docker
 	pytest
 
 ## Use test docker image to import (and potentially rezip) files from the test SFTP site
-test_sftp_import: docker  reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
+test_sftp_import_diffuse: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 	${DOCKER_RUN} -v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro ${TEST_TAG} \
 							apps/import_sftp.py  --run-local --log DEBUG \
 																	--regex ".*diffuse.*" \
+																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+
+test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
+	${DOCKER_RUN} -v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro ${TEST_TAG} \
+							apps/import_sftp.py  --run-local --log DEBUG \
 																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 # == Test for existence of required docker services =================
