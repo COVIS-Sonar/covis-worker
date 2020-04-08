@@ -2,10 +2,10 @@ help:
 	@echo "make download 			Downloads all of the COVIS test data.  Requires wget"
 
 TGZ_DIR = sftp-host
-T7Z_DIR = covis-nas/covis-raw
+T7Z_DIR = covis-nas/raw
 
-TEST_FILES = 2019/10/24/COVIS-20191024T003346-diffuse3.tar.gz \
-							2019/10/24/COVIS-20191024T000002-imaging1.tar.gz \
+TEST_FILES = COVIS-20191024T003346-diffuse3.tar.gz \
+							COVIS-20191024T000002-imaging1.tar.gz \
 							2019/10/24/COVIS-20191024T003346-diffuse3.7z \
 							2019/10/24/COVIS-20191024T000002-imaging1.7z
 

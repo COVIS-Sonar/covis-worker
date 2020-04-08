@@ -37,8 +37,14 @@ local_pytest:
 #
 
 COVISTEST_NETWORK= test_stack_covistest
+MONGODB_DB=covis_test
 
-CLIENT_ENV =
+
+CLIENT_ENV = -e NAS_ACCESS_KEY=covistestdata \
+ 						 -e NAS_SECRET_KEY=covistestdata \
+						 -e NAS_URL=covis-nas:9000 \
+						 -e MONGODB_URL=mongodb://mongodb:27017/ \
+						 -e MONGODB_DB=${MONGODB_DB}
 							# -e RAW_S3_HOST=covistestdata:9000 \
 							# -e RAW_S3_ACCESS_KEY=covistestdata \
 							# -e RAW_S3_SECRET_KEY=covistestdata \
@@ -53,9 +59,11 @@ pytest: check_test_docker
 	pytest
 
 ## Use test docker image to import (and potentially rezip) files from the test SFTP site
-test_sftp_import: docker  reset_test_db check_test_stack_ssh_keys
-	${DOCKER_RUN} -v $(CURDIR)/test_stack/tmp/ssh_keys/:/tmp/sshkeys:ro ${TEST_TAG} \
-							apps/import_sftp.py  --run-local --log INFO --privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+test_sftp_import: docker  reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
+	${DOCKER_RUN} -v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro ${TEST_TAG} \
+							apps/import_sftp.py  --run-local --log DEBUG \
+																	--regex ".*diffuse.*" \
+																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 # == Test for existence of required docker services =================
 
@@ -75,15 +83,16 @@ check_test_data:
   fi
 
 ## Generate SSH keys for test SFTP server in Docker-Compose and pytest
-check_test_stack_ssh_keys: ${TESTDATA_DIR}/tmp/ssh_keys/id_rsa.pub
+check_test_stack_ssh_keys: ${TESTDATA_DIR}/tmp/ssh_keys/keys/id_rsa.pub
 
 TEST_STACK_SSH_DIR=${TESTDATA_DIR}/tmp/ssh_keys
 
-${TESTDATA_DIR}/tmp/ssh_keys/id_rsa.pub:
-	mkdir -p ${TEST_STACK_SSH_DIR}
+${TEST_STACK_SSH_DIR}/keys/id_rsa.pub:
+	mkdir -p ${TEST_STACK_SSH_DIR}/keys
 	ssh-keygen -N "" -t ed25519 -f ${TEST_STACK_SSH_DIR}/ssh_host_ed25519_key < /dev/null
 	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/ssh_host_rsa_key < /dev/null
-	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/id_rsa < /dev/null
+	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/keys/id_rsa < /dev/null
+	chmod 644 ${TEST_STACK_SSH_DIR}/keys/id_rsa    # Overrule normal permissions so it can be used in Docker images with different UIDs
 
 # == Tasks for bootstrapping the database in the test network ==
 
@@ -92,13 +101,20 @@ reset_test_db_dmas_oldnas:
 	cat test_stack/db_dumps/dmas_oldnas.json | docker exec -i \
  						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
  						mongoimport --verbose --host mongodb:27017 \
-						 						--db covis --collection runs --drop --jsonArray
+						 						--db ${MONGODB_DB} --collection runs --drop --jsonArray
+
+## Note this one is not in "jsonArray" format
+reset_test_db_post_import:
+	cat test_stack/db_dumps/post_import.json | docker exec -i \
+ 						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
+ 						mongoimport --verbose --host mongodb:27017 \
+						 						--db ${MONGODB_DB} --collection runs --drop
 
 dump_test_db:
-	docker exec -i \
+	@docker exec -i \
  						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
- 						mongoexport --host mongodb:27017 \
-						--db covis --collection runs
+ 						mongoexport --quiet --host mongodb:27017 \
+						--db ${MONGODB_DB} --collection runs
 
 # == Tasks related to extracting Git metadata ==
 #
@@ -120,7 +136,8 @@ covis_worker/static_git_info.py:
 
 .PHONY: help \
 	 			docker force_docker push \
-				reset_test_db dump_test_db \
+				reset_test_db_dmas_oldnas \
+				dump_test_db \
 				check_test_data check_test_docker check_test_stack_ssh_keys run_test_stack \
 				local_pytest
 
