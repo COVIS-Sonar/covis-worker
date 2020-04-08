@@ -44,13 +44,13 @@ CLIENT_ENV = -e NAS_ACCESS_KEY=covistestdata \
  						 -e NAS_SECRET_KEY=covistestdata \
 						 -e NAS_URL=covis-nas:9000 \
 						 -e MONGODB_URL=mongodb://mongodb:27017/ \
-						 -e MONGODB_DB=${MONGODB_DB}
-							# -e RAW_S3_HOST=covistestdata:9000 \
-							# -e RAW_S3_ACCESS_KEY=covistestdata \
-							# -e RAW_S3_SECRET_KEY=covistestdata \
-							# -e OUTPUT_S3_HOST=covistestdata:9000 \
-							# -e OUTPUT_S3_ACCESS_KEY=covistestdata \
-							# -e OUTPUT_S3_SECRET_KEY=covistestdata
+						 -e MONGODB_DB=${MONGODB_DB} \
+						 -e RAW_S3_HOST=covis-nas:9000 \
+						 -e RAW_S3_ACCESS_KEY=covistestdata \
+						 -e RAW_S3_SECRET_KEY=covistestdata \
+						 -e OUTPUT_S3_HOST=covis-nas:9000 \
+						 -e OUTPUT_S3_ACCESS_KEY=covistestdata \
+						 -e OUTPUT_S3_SECRET_KEY=covistestdata
 
 DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV}
 DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
@@ -70,12 +70,42 @@ test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 							apps/import_sftp.py  --run-local --log DEBUG \
 																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
+
+## == Test postprocessing files
+
+postprocess_diffuse3_local:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+					--run-local \
+					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+
+postprocess_diffuse3_worker:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
+					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+
+postprocess_imaging1_local:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+					--run-local \
+					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
+					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
+
+postprocess_imaging1_worker:
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
+					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
+
+
 # == Test for existence of required docker services =================
 
 TESTDATA_DIR=test_stack
 
 run_test_stack: check_test_data
 	cd ${TESTDATA_DIR} && docker-compose up
+
+# Attach a test worker to the covis_Default test network ... for use with non-"local"
+run_test_worker: docker
+		${DOCKER_RUN_TEST}
 
 check_test_stack: check_test_data check_test_stack_ssh_keys
 	if ! docker ps --quiet --filter name=covistestdata --format "{{.Names}}" | grep "covistestdata" ; then \
@@ -146,6 +176,7 @@ covis_worker/static_git_info.py:
 				check_test_data check_test_docker check_test_stack_ssh_keys run_test_stack \
 				local_pytest
 
+#============================================================================
 # == Old / less organized tasks =============================================
 
 # -V drops anonymous volumes so mongodb data isn't persisted
@@ -173,20 +204,16 @@ ${TEST_DATA}/test_db.bson: ${TEST_DATA}/old_covis_nas1.txt ${TEST_DATA}/covis_dm
 ## Run sample jobs against local test_up netestdata_and_compose_covistesttwork
 
 
-# Attach a test worker to the covis_Default test network ... for use with non-"local"
-# jobs below
-test_worker:
-	${DOCKER_RUN_TEST}
 
-postprocess_diffuse3.7z_local:
-	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
-					--run-local s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
-					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
-
-postprocess_diffuse3.7z_worker:
-	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
-					s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
-					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+# postprocess_diffuse3.7z_local:
+# 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+# 					--run-local s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+# 					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+#
+# postprocess_diffuse3.7z_worker:
+# 	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
+# 					s3://covis-raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+# 					--output    s3://covis-postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
 postprocess_local_job:
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG --job test-job --run-local APLUWCOVISMBSONAR001_20111001T210757.973Z-IMAGING
