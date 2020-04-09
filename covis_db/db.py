@@ -13,7 +13,7 @@ import glob
 from pathlib import Path
 
 from os import path
-from . import remote,hosts,misc
+from . import accessor,hosts,misc
 
 
 def retry(num_tries, exceptions):
@@ -129,6 +129,8 @@ class CovisRun:
         #entry = {'host': host } #, 'filename': filename}
         #print("Searching for %s" % entry)
 
+        host = host.upper()
+
         if self.collection:
             f = self.collection.find_one({'basename': self.basename,
                                             'raw.host': {'$eq': host } } )
@@ -149,6 +151,8 @@ class CovisRun:
                     return_document=ReturnDocument.AFTER)
 
     def add_raw(self,host,filename=None,filesize=None, make_filename=False,suffix='.7z'):
+
+        host = host.upper()
 
         if not hosts.validate_host(host):
             logging.warning("Invalid host %s" % host)
@@ -228,13 +232,13 @@ class CovisRaw:
 
     def accessor(self):
         if hosts.is_old_nas(self.host):
-            return remote.OldCovisNasAccessor(self)
+            return accessor.OldCovisNasAccessor(self)
         elif hosts.is_nas(self.host):
-            return remote.CovisNasAccessor(self)
+            return accessor.CovisNasAccessor(self)
         elif hosts.is_dmas(self.host):
-            return remote.DmasAccessor(path=self.filename)
+            return accessor.DmasAccessor(path=self.filename)
         elif hosts.is_wasabi(self.host):
-            return remote.WasabiAccessor(path=self.filename)
+            return accessor.WasabiAccessor(path=self.filename)
 
     def reader(self):
         return self.accessor().reader()

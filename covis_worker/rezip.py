@@ -248,9 +248,13 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
 
         if not run:
             logging.info("Error inserting into db...")
+        else:
+            logging.debug("Successfully created run %s" % run.basename)
 
         ## Ugliness
         run.insert_raw(raw)
+
+        logging.info("Completed rezip")
 
         return run
 

@@ -6,7 +6,7 @@ from decouple import config
 app = Celery('covis_worker',
              broker=config('CELERY_BROKER', default='amqp://user:bitnami@rabbitmq'),
              backend=config('CELERY_BACKEND', default='rpc://'),
-             include=['covis_worker.process', 'covis_worker.rezip'])
+             include=['covis_worker.postprocess', 'covis_worker.rezip'])
 
 # Optional configuration, see the application user guide.
 app.conf.update(

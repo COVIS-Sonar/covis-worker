@@ -8,7 +8,7 @@ flower:
 	celery flower -A covis_worker --broker=${CELERY_BROKER}
 
 worker:
-	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
+	celery -A covis_worker worker -l debug --concurrency 1 --without-mingle --without-gossip --events
 
 idle:
 	while true; do sleep 3600; done

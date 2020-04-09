@@ -52,22 +52,26 @@ CLIENT_ENV = -e NAS_ACCESS_KEY=covistestdata \
 						 -e OUTPUT_S3_ACCESS_KEY=covistestdata \
 						 -e OUTPUT_S3_SECRET_KEY=covistestdata
 
-DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV}
+DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV} \
+							-v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro
 DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
 pytest: check_test_docker
 	pytest
 
 ## Use test docker image to import (and potentially rezip) files from the test SFTP site
-test_sftp_import_diffuse: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
-	${DOCKER_RUN} -v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro ${TEST_TAG} \
-							apps/import_sftp.py  --run-local --log DEBUG \
+test_sftp_import_diffuse_local: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
+	${DOCKER_RUN_TEST} 	apps/import_sftp.py  --run-local --log DEBUG \
 																	--regex ".*diffuse.*" \
+																	--postprocess \
+																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+
+test_sftp_import_local: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
+	${DOCKER_RUN_TEST} 	apps/import_sftp.py  --run-local --log DEBUG \
 																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
-	${DOCKER_RUN} -v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro ${TEST_TAG} \
-							apps/import_sftp.py  --run-local --log DEBUG \
+	${DOCKER_RUN_TEST} 	apps/import_sftp.py --log DEBUG \
 																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 
@@ -79,7 +83,7 @@ postprocess_diffuse3_local:
 					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
-postprocess_diffuse3_worker:
+postprocess_diffuse3:
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
 					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
@@ -100,11 +104,11 @@ postprocess_imaging1_worker:
 
 TESTDATA_DIR=test_stack
 
-run_test_stack: check_test_data
+test_stack: check_test_data
 	cd ${TESTDATA_DIR} && docker-compose up
 
 # Attach a test worker to the covis_Default test network ... for use with non-"local"
-run_test_worker: docker
+test_worker: docker
 		${DOCKER_RUN_TEST}
 
 check_test_stack: check_test_data check_test_stack_ssh_keys
@@ -173,7 +177,7 @@ covis_worker/static_git_info.py:
 	 			docker force_docker push \
 				reset_test_db_dmas_oldnas \
 				dump_test_db \
-				check_test_data check_test_docker check_test_stack_ssh_keys run_test_stack \
+				check_test_data check_test_docker check_test_stack_ssh_keys test_stack test_worke \
 				local_pytest
 
 #============================================================================

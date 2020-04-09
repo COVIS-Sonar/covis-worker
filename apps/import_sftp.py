@@ -12,7 +12,7 @@ from pymongo import MongoClient
 # from bson import json_util
 from decouple import config
 from covis_db import db, hosts, misc
-from covis_worker import rezip
+from covis_worker import rezip,postprocess
 
 from paramiko.client import SSHClient,AutoAddPolicy
 from urllib.parse import urlparse
@@ -132,36 +132,14 @@ for remote_file in sftp.listdir():
 
 
             if args.postprocess:
-                logging.info(" .... automatically postprocessing")
+                postprocess.do_postprocess_run( run, auto_output_path=True )
 
         else:
-            job = rezip.rezip.rezip_from_sftp.delay(srcurl.geturl() + "/" + remote_file,args.desthost,
+            s = rezip.rezip_from_sftp.s(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
 
-        ## Attempt to add to dest
-        #
-        # logging.info("Uploading to destination host %s" % args.desthost)
-        #
-        # run = db.make_run(basename=basename)
-        # raw = run.add_raw(args.desthost, make_filename=True)
-        # accessor = raw.accessor()
-        #
-        # if not accessor:
-        #     logging.error("Unable to get accessor for %s" % args.desthost)
-        #
-        # with sftp.open(remote_file) as sftpfile:
-        #
-        #     statinfo = sftpfile.stat()
-        #
-        #     print("Writing %d bytes to %s:%s" % (statinfo.st_size,raw.host,raw.filename))
-        #     accessor.write(sftpfile, statinfo.st_size)
-        #
-        #
-        # logging.info("Upload successful, updating DB")
-        #
-        # run = db.insert_run(run)
-        # if not run:
-        #     logging.info("Error inserting into db...")
-        #
-        # ## Ugliness
-        # run.insert_raw(raw)
+            if args.postprocess:
+                s.link(  postprocess.do_postprocess_run.s( run, auto_output_path = True ) )
+
+
+            s.apply_async()

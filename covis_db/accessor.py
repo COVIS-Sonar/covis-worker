@@ -38,12 +38,9 @@ class MinioAccessor:
         self.path = path
 
 
-    # def host(self):
-    #     return self._host
-    #
-    # def port(self):
-    #     return self._port
-
+    @property
+    def basename(self):
+        return pathlib.Path(self.path).stem
 
     def minio_client(self):
         logging.debug("Accessing minio host: %s" % self.url)
@@ -51,6 +48,17 @@ class MinioAccessor:
                   access_key=self.access_key,
                   secret_key=self.secret_key,
                   secure=False)
+
+    def fget_object(self, file_path, object_name=None ):
+        if not object_name: object_name = self.path
+        logging.debug("Getting %s / %s to file %s" % (self.bucket, object_name, file_path ))
+        return self.minio_client().fget_object( bucket_name=self.bucket, object_name=str(object_name), file_path=str(file_path) )
+
+
+    def fput_object(self, file_path, object_name=None ):
+        if not object_name: object_name = self.path
+        logging.debug("Putting file %s to %s / %s" % (file_path, self.bucket, object_name ))
+        return self.minio_client().fput_object( bucket_name=self.bucket, object_name=str(object_name), file_path=str(file_path) )
 
     def reader(self):
         logging.debug("Getting object at %s / %s" % (self.bucket, self.path))
