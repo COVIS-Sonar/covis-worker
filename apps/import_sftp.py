@@ -55,6 +55,9 @@ parser.add_argument('--regex',
                     default=config('FILTER_REGEX', default=""),
                     nargs='?')
 
+parser.add_argument('--prefix', nargs='?', default=config('POSTPROC_PREFIX', default=""),
+                    help='Prefix appended to output filename')
+
 parser.add_argument('--postprocess',
                     default=False,
                     action="store_true")
@@ -132,14 +135,14 @@ for remote_file in sftp.listdir():
 
 
             if args.postprocess:
-                postprocess.do_postprocess_run( basename, auto_output_path=True )
+                postprocess.do_postprocess_run( basename, preefix=args.prefix, auto_output_path=True )
 
         else:
             s = rezip.rezip_from_sftp.s(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
 
             if args.postprocess:
-                s.link(  postprocess.do_postprocess_run.s( auto_output_path = True ) )
+                s.link(  postprocess.do_postprocess_run.s( prefix=args.prefix, auto_output_path = True ) )
 
 
             s.apply_async()

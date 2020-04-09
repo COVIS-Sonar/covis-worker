@@ -25,15 +25,12 @@ parser.add_argument('--dbhost', default=config('MONGODB_URL',
                     default="mongodb://localhost/"),
                     help='URL (mongodb://hostname/) of MongoDB host')
 
-# parser.add_argument('--dest-host', dest="desthost", default="COVIS-NAS",
-#                     help='Destination host')
-
 parser.add_argument('--log', metavar='log', nargs='?',
                     default=config('LOG_LEVEL', default='INFO'),
                     help='Logging level')
 
-parser.add_argument('--job', metavar='log', nargs='?',
-                    help='Job name')
+parser.add_argument('--prefix', nargs='?', default=config('POSTPROC_PREFIX', default=""),
+                    help='Prefix appended to output filename')
 
 parser.add_argument('--count', default=0, type=int,
                     metavar='N',
@@ -43,83 +40,50 @@ parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
 parser.add_argument("--run-local", dest='runlocal', action='store_true')
 
-parser.add_argument("--output",  help="URL for output",
-                        dest="outputDir", default="/output")
+# parser.add_argument("--output",  help="URL for output",
+#                         dest="outputDir", default="/output")
+#
+# parser.add_argument("--auto-output-path", action='store_true', dest="autoOutputPath",
+#                     help="Automatically add the YYYY/MM/DD/ path to the output")
 
-parser.add_argument("--auto-output-path", action='store_true', dest="autoOutputPath",
-                    help="Automatically add the YYYY/MM/DD/ path to the output")
+parser.add_argument('basenames', nargs='*')
 
-parser.add_argument('inputs', nargs='*')
-
-# parser.add_argument('--skip-dmas', dest='skipdmas', action='store_true',
-#                     help='Skip files which are only on DMAS')
+parser.add_argument("--regex", nargs="*", default=[], help="Regex for basenames to process")
 
 args = parser.parse_args()
 logging.basicConfig( level=args.log.upper() )
 
-## If given, load JSON, otherwise initialize an empty config struct
+client = db.CovisDB(MongoClient(args.dbhost))
 
-# config = {}
-#
-# if args.config:
-#     if Path(args.config).exist:
-#         with open(args.config) as fp:
-#             logging.info("Loading configuration from %s" % args.config)
-#             config = json.load(args.config)
-#
-#     elif args.config == '-':
-#         config = json.load(sys.stdin)
+basenames = args.basenames
 
+for reg in args.regex:
+    basenames.extend( [run.basename for run in client.find_regex(reg)] )
 
-# if args.basename:
-#     config["selector"] = { "basename": { "$in": args.basename } }
-#
-# if args.job:
-#     config["job_id"] = args.job
-#
-#
-# if not config["selector"]:
-#     logging.error("No basenames provided")
-#     exit()
-#
-# ## Default
-# config["dest"] = { "minio": { "host": "covis-nas",
-#                             "bucket": "postprocessed" }}
+logging.debug("Checking these basenames: %s" % basenames)
 
-# # Validate configuration
-# if "dest" not in config:
-#     logging.error("No destination provided")
-#     exit()
-#
-# client = db.CovisDB(MongoClient(args.dbhost))
-#
-# prefix = ""
-# if "job_id" in config:
-#     prefix = "by_job_id/%s" % config["job_id"]
-# else:
-#     prefix = "no_job_id/%s" % datetime.now().strftime("%Y%m%d-%H%M%S")
+## Validate existence of each basename
+validated_basenames = []
+for basename in basenames:
+    if client.find( basename ):
+        validated_basenames.append(basename)
+    else:
+        logging.warning("Unable to find basename, skipping: %s" % basename )
+
+logging.debug("Validated basenames: %s" % basenames)
 
 ## If specified, load the JSON configuration
-for input in args.inputs:
-
-# with client.runs.find(config["selector"]) as results:
-#
-#     for r in results:
-
-    output = args.outputDir
-
-    logging.info("Processing input: %s" % input)
-    logging.info("       to output: %s" % output)
+for basename in validated_basenames:
 
     if not args.dryrun:
 
         if args.runlocal:
-            job = postprocess.do_postprocess( input, output,
-                                    autoOutputPath = args.autoOutputPath )
+            job = postprocess.do_postprocess_run( basename, prefix=args.prefix,
+                                    auto_output_path = True )
 
         else:
-            job = postprocess.do_postprocess.delay( input, output,
-                                    autoOutputPath = args.autoOutputPath )
+            job = postprocess.do_postprocess_run.delay( basename, prefix=args.prefix,
+                                    auto_output_path = True )
 
 
     else:

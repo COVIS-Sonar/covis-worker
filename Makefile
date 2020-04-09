@@ -19,11 +19,11 @@ docker: covis_worker/static_git_info.py
 force_docker: covis_worker/static_git_info.py
 	docker build --no-cache -t ${TEST_TAG} .
 
-push: build
+push: docker
 	docker push ${TEST_TAG}
 
 ## Jobs related to building __prod__ image
-prod: build
+prod: docker
 	docker tag ${TEST_TAG} ${PROD_TAG}
 	docker push ${PROD_TAG}
 
@@ -39,18 +39,12 @@ local_pytest:
 COVISTEST_NETWORK= test_stack_covistest
 MONGODB_DB=covis_test
 
-
 CLIENT_ENV = -e NAS_ACCESS_KEY=covistestdata \
  						 -e NAS_SECRET_KEY=covistestdata \
 						 -e NAS_URL=covis-nas:9000 \
 						 -e MONGODB_URL=mongodb://mongodb:27017/ \
 						 -e MONGODB_DB=${MONGODB_DB} \
-						 -e RAW_S3_HOST=covis-nas:9000 \
-						 -e RAW_S3_ACCESS_KEY=covistestdata \
-						 -e RAW_S3_SECRET_KEY=covistestdata \
-						 -e OUTPUT_S3_HOST=covis-nas:9000 \
-						 -e OUTPUT_S3_ACCESS_KEY=covistestdata \
-						 -e OUTPUT_S3_SECRET_KEY=covistestdata
+						 -e POSTPROC_PREFIX=test
 
 DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV} \
 							-v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro
@@ -78,27 +72,31 @@ test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 
 ## == Test postprocessing files
 
-postprocess_diffuse3_local:
-	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
-					--run-local \
-					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
-					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+# test_postprocess_diffuse3_local:
+# 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+# 					--run-local \
+# 					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
+# 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
-postprocess_diffuse3:
+test_postprocess_diffuse3: docker
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
-					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
-					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
+					COVIS-20191024T003346-diffuse3
 
-postprocess_imaging1_local:
-	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
-					--run-local \
-					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
-					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
 
-postprocess_imaging1_worker:
+# test_postprocess_imaging1_local:
+# 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+# 					--run-local \
+# 					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
+# 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
+
+test_postprocess_imaging1: docker
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
-					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
-					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
+					COVIS-20191024T000002-imaging1.7z
+
+test_postprocess_regex: docker
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
+					--prefix "test-regex" \
+					--regex ".*20191024T.*"
 
 
 # == Test for existence of required docker services =================

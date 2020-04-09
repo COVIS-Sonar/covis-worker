@@ -8,16 +8,16 @@ flower:
 	celery flower -A covis_worker --broker=${CELERY_BROKER}
 
 worker:
-	celery -A covis_worker worker -l debug --concurrency 1 --without-mingle --without-gossip --events
+	celery -A covis_worker worker -l info --concurrency 1 --without-mingle --without-gossip --events
 
 idle:
 	while true; do sleep 3600; done
 
 covis_import_sftp_to_nas:
-	apps/import_sftp.py --run-local --log INFO sftp://covis@pi.ooirsn.uw.edu/data/COVIS
+	apps/import_sftp.py --log INFO sftp://covis@pi.ooirsn.uw.edu/data/COVIS
 
 covis_import_sftp_to_nas_and_postprocess:
-	apps/import_sftp.py --run-local --log INFO --postprocess sftp://covis@pi.ooirsn.uw.edu/data/COVIS
+	apps/import_sftp.py --log INFO --postprocess sftp://covis@pi.ooirsn.uw.edu/data/COVIS
 
 covis_import_sftp_to_s3:
 	apps/sftp_to_wasabi.py --bucket covis-raw --log INFO ftp://covis@pi.ooirsn.uw.edu/data/COVIS

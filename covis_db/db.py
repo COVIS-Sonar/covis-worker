@@ -55,6 +55,11 @@ class CovisDB:
         else:
             return None
 
+    def find_regex(self, reg):
+        results = self.runs.find( {'basename' : {"$regex" : reg}} )
+
+        return [ CovisRun(r,collection=self.runs) for r in results ]
+
     def insert_run(self, run):
         self.runs.replace_one({'basename':run.basename}, run.json, upsert=True)
         return self.find(run.basename)
