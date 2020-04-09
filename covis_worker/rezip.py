@@ -256,7 +256,7 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
 
         logging.info("Completed rezip")
 
-        return run
+        return run.basename
 
 
 def tarInfoToContentsEntry(ti, workdir):

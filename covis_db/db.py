@@ -104,6 +104,9 @@ class CovisRun:
         self.collection = collection
         self.json = json
 
+    def toJSON(self):
+        return self.json
+
     @property
     def basename(self):
         return self.json["basename"]

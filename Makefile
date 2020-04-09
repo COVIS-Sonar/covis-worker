@@ -72,7 +72,8 @@ test_sftp_import_local: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_k
 
 test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 	${DOCKER_RUN_TEST} 	apps/import_sftp.py --log DEBUG \
-																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+																		--postprocess \
+																		--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 
 ## == Test postprocessing files

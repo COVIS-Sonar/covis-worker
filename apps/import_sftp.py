@@ -127,19 +127,19 @@ for remote_file in sftp.listdir():
             continue
 
         if args.runlocal:
-            run = rezip.rezip_from_sftp(srcurl.geturl() + "/" + remote_file, args.desthost,
+            basename = rezip.rezip_from_sftp(srcurl.geturl() + "/" + remote_file, args.desthost,
                                         privkey=args.privkey)
 
 
             if args.postprocess:
-                postprocess.do_postprocess_run( run, auto_output_path=True )
+                postprocess.do_postprocess_run( basename, auto_output_path=True )
 
         else:
             s = rezip.rezip_from_sftp.s(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
 
             if args.postprocess:
-                s.link(  postprocess.do_postprocess_run.s( run, auto_output_path = True ) )
+                s.link(  postprocess.do_postprocess_run.s( auto_output_path = True ) )
 
 
             s.apply_async()

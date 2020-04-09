@@ -13,6 +13,7 @@ from glob import glob
 from urllib.parse import urlparse
 from pathlib import Path
 
+from pymongo import MongoClient
 from pycovis.postprocess import process
 
 from covis_db import hosts,db,accessor,misc
@@ -22,7 +23,11 @@ from minio import Minio
 from . import static_git_info
 
 @app.task
-def do_postprocess_run( run, prefix = "", auto_output_path = False ):
+def do_postprocess_run( basename, prefix = "", auto_output_path = False ):
+    covis_db = db.CovisDB(MongoClient(config('MONGODB_URL',default="mongodb://localhost/")))
+
+    run = covis_db.find(basename)
+
     raw = run.find_raw( "covis-nas" )
     logging.debug("Raw is %s" % raw)
     input = raw.accessor()
