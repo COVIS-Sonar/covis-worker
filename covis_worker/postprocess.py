@@ -114,6 +114,8 @@ def do_postprocess( input, output, prefix = "", auto_output_path=False, force = 
 
         logging.debug("Uploaded %s to bucket %s, path %s" % (output_file,output.bucket,dest) )
 
+    logging.info("Finished processing %s" %  input.basename )
+
 
 
     # input = urlparse(inputURL)

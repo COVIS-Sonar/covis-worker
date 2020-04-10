@@ -15,8 +15,14 @@ app.conf.update(
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     broker_connection_timeout=60,
-    broker_heartbeat=300
+    broker_heartbeat=300,
+    task_send_sent_event=True,
+    worker_send_task_events=True
 )
+app.conf.task_routes = {
+       'covis_worker.postprocess.*' : {'queue': 'postprocess'},
+       'covis_worker.rezip.*' : {'queue': 'rezip'}
+}
 
 
 if __name__ == '__main__':

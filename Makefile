@@ -110,6 +110,9 @@ test_stack: check_test_data
 test_worker: docker
 		${DOCKER_RUN_TEST}
 
+test_rezip_worker: docker
+		${DOCKER_RUN_TEST} make rezip_worker
+
 flower: docker
 	${DOCKER_RUN} -p 5555:5555 ${TEST_TAG} make flower
 

@@ -8,7 +8,10 @@ flower:
 	celery flower -A covis_worker --broker=${CELERY_BROKER} --address=0.0.0.0 --debug=True
 
 worker:
-	celery -A covis_worker worker -l info --concurrency 1 --task-events
+	celery -A covis_worker worker -l info --concurrency 1 --task-events -Q rezip,postprocess --max-tasks-per-child 4
+
+rezip_worker:
+	celery -A covis_worker worker -l info --concurrency 1 --task-events -Q rezip --max-tasks-per-child 5
 
 idle:
 	while true; do sleep 3600; done
