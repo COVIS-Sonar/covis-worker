@@ -1,5 +1,5 @@
 
-from covis_db import db, remote
+from covis_db import db, accessor
 from decouple import config
 
 from os import stat
@@ -56,5 +56,5 @@ def test_covis_copy_minio_to_minio():
     raw = next(x for x in result.raw if x.host=='OLD-COVIS-NAS1')
 
     with raw.reader() as src:
-        nas = remote.CovisNasAccessor(result.raw[0])
+        nas = accessor.CovisNasAccessor(result.raw[0])
         nas.write(src, int(src.getheader('Content-Length')))
