@@ -6,10 +6,25 @@ PROD_TAG=amarburg/covis-worker:prod
 default: help
 
 help:
-	@echo "make docker        Build test covis-worker docker image \"${TEST_TAG}\""
-	@echo "make force_docker  Build test covis-worker docker image \"${TEST_TAG}\" with --no-cache"
-	@echo "make push          Push test covis-worker docker image \"${TEST_TAG}\""
-	@echo "make prod          Label current test as \"prod\" and push to \"${PROD_TAG}\""
+	@echo "make docker               Build test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make force_docker         Build test covis-worker docker image \"${TEST_TAG}\" with --no-cache"
+	@echo "make push                 Push test covis-worker docker image \"${TEST_TAG}\""
+	@echo "make prod                 Label current test as \"prod\" and push to \"${PROD_TAG}\""
+	@echo
+	@echo "====== Targets for Local testing ============================"
+	@echo "make pytest               Run pytest"
+	@echo
+	@echo "====== Support for testing =================================="
+	@echo "make test_stack           Launches local set of services required to test -- but no workers"
+	@echo
+	@echo "===== Targets for Testing in a Docker image ======================="
+	@echo "make test_worker          Launches a local worker for all queues"
+	@echo "make test_rezip_worker    Launches a local worker for the rezip queue"
+	@echo "make test_sftp_import"
+	@echo ""
+	@echo "make reset_test_db_dmas_oldnas  Resets test db with a small number of DMAS and Oldnas entries"
+	@echo "make reset_test_db_post_import  Resets test db with a small number of DMAS, Oldnas and imported NAS entries"
+	@echo "make dump_test_db         Dump the contents of the test db"
 
 # == Tasks related to building __test__ image =======================
 #
@@ -29,8 +44,8 @@ prod: docker
 
 
 # == Tasks related to testing locally (not in Docker) ===============
-# Run pytest
-local_pytest:
+
+pytest: check_test_docker
 	pytest
 
 # == Tasks related to testing in the Docker image ====================
@@ -50,8 +65,6 @@ DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV} \
 							-v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro
 DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
-pytest: check_test_docker
-	pytest
 
 ## Use test docker image to import (and potentially rezip) files from the test SFTP site
 test_sftp_import_diffuse_local: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
