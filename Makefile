@@ -110,6 +110,11 @@ test_stack: check_test_data
 test_worker: docker
 		${DOCKER_RUN_TEST}
 
+flower: docker
+	${DOCKER_RUN} -p 5555:5555 ${TEST_TAG} make flower
+
+
+
 check_test_stack: check_test_data check_test_stack_ssh_keys
 	if ! docker ps --quiet --filter name=covistestdata --format "{{.Names}}" | grep "covistestdata" ; then \
 		echo "Test docker network not running.  \"make run_test_docker\" or \"cd testdata && docker-compose up\""; \

@@ -23,7 +23,7 @@ from minio import Minio
 from . import static_git_info
 
 @app.task
-def do_postprocess_run( basename, prefix = "", auto_output_path = False ):
+def do_postprocess_run( basename, prefix = "", auto_output_path = False, force = False ):
     covis_db = db.CovisDB(MongoClient(config('MONGODB_URL',default="mongodb://localhost/")))
 
     run = covis_db.find(basename)
@@ -35,12 +35,12 @@ def do_postprocess_run( basename, prefix = "", auto_output_path = False ):
     output = accessor.MinioAccessor(bucket="postprocessed",
                                 config_base=hosts.config_base("covis-nas"))
 
-    return do_postprocess( input, output, prefix, auto_output_path )
+    return do_postprocess( input, output, prefix, auto_output_path, force )
 
 
 
 @app.task
-def do_postprocess( input, output, prefix = "", auto_output_path=False ):
+def do_postprocess( input, output, prefix = "", auto_output_path=False, force = False ):
 
     ## Check, input and output need to be a MinioAccessor (for now)
     if not isinstance( input, accessor.MinioAccessor ):
@@ -53,6 +53,20 @@ def do_postprocess( input, output, prefix = "", auto_output_path=False ):
 
 
     prefix = Path(prefix)
+
+    if auto_output_path:
+        dest_path = prefix / misc.make_pathname( input.basename )
+    else:
+        dest_path = prefix / input.basename
+
+    exists = output.exists( dest_path / "metadata.json" )
+
+    if exists:
+      logging.info("Output metadata file exists")
+      if not force:
+        logging.info(" ... skipping")
+        return None
+
 
     tempdir = tempfile.TemporaryDirectory()
     workdir = Path(tempdir.name)
@@ -87,10 +101,6 @@ def do_postprocess( input, output, prefix = "", auto_output_path=False ):
     with open( metadata_file, 'w') as m:
         json.dump(metadata, m, indent=2)
 
-    if auto_output_path:
-        dest_path = prefix / misc.make_pathname( input.basename )
-    else:
-        dest_path = prefix / input.basename
 
     for output_file in os.listdir( output_path ):
 

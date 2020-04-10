@@ -60,6 +60,7 @@ basenames = args.basenames
 for reg in args.regex:
     basenames.extend( [run.basename for run in client.find_regex(reg)] )
 
+logging.info("Checking %d basenames" % len(basenames))
 logging.debug("Checking these basenames: %s" % basenames)
 
 ## Validate existence of each basename
@@ -70,6 +71,7 @@ for basename in basenames:
     else:
         logging.warning("Unable to find basename, skipping: %s" % basename )
 
+logging.info("Post-processing %d validated basenames" % len(basenames))
 logging.debug("Validated basenames: %s" % basenames)
 
 ## If specified, load the JSON configuration

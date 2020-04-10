@@ -135,14 +135,16 @@ for remote_file in sftp.listdir():
 
 
             if args.postprocess:
-                postprocess.do_postprocess_run( basename, preefix=args.prefix, auto_output_path=True )
+                postprocess.do_postprocess_run( basename, preefix=args.prefix, auto_output_path=True, force=args.force )
 
         else:
             s = rezip.rezip_from_sftp.s(srcurl.geturl() + "/" + remote_file,args.desthost,
                                         privkey=args.privkey)
 
             if args.postprocess:
-                s.link(  postprocess.do_postprocess_run.s( prefix=args.prefix, auto_output_path = True ) )
+                s.link(  postprocess.do_postprocess_run.s( prefix=args.prefix, auto_output_path = True, force=args.force ) )
+
+            logging.debug("Queuing: %s" % s )
 
 
             s.apply_async()

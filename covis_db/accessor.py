@@ -43,7 +43,7 @@ class MinioAccessor:
         return pathlib.Path(self.path).stem
 
     def minio_client(self):
-        logging.debug("Accessing minio host: %s" % self.url)
+        logging.debug("Accessing minio host: %s : %s : %s" % (self.url,self.access_key,self.secret_key))
         return Minio(self.url,
                   access_key=self.access_key,
                   secret_key=self.secret_key,
@@ -68,8 +68,9 @@ class MinioAccessor:
         logging.debug("Writing object to %s / %s" % (self.bucket, self.path))
         return self.minio_client().put_object(self.bucket, str(self.path), io, length)
 
-    def stats(self):
-        return self.minio_client().stat_object(self.bucket, self.path)
+    def stats(self, path = None):
+        if not path: path = self.path
+        return self.minio_client().stat_object(self.bucket, str(path) )
 
     def filesize(self):
         return self.stats().size
@@ -77,9 +78,10 @@ class MinioAccessor:
     def remove(self):
         return self.minio_client().remove_object(self.bucket, self.path)
 
-    def exists(self):
+    def exists(self, path=None):
+        if not path: path = self.path
         try:
-            stats = self.stats()
+            stats = self.stats(str(path))
             return True
         except NoSuchKey:
             return False
