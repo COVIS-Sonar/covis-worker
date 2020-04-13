@@ -42,7 +42,6 @@ class CovisDB:
             self.client = db_client
         else:
             mongo_url = config('MONGODB_URL', default="mongodb://localhost/")
-            print("Connecting to %s" % mongo_url)
             self.client = MongoClient(mongo_url)
 
         self.db = self.client[config('MONGODB_DB', default='covisprod')]
@@ -146,7 +145,6 @@ class CovisRun:
             ## Find the matching element in the raw array
             if f:
                 for r in f['raw']:
-                    logging.info(r)
                     if r['host'] == host:
                         return CovisRaw(r)
 

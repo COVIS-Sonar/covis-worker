@@ -40,6 +40,8 @@ parser.add_argument('--dry-run', dest='dryrun', action='store_true')
 
 parser.add_argument("--run-local", dest='runlocal', action='store_true')
 
+parser.add_argument("--force", dest='force', action='store_true')
+
 # parser.add_argument("--output",  help="URL for output",
 #                         dest="outputDir", default="/output")
 #
@@ -81,12 +83,12 @@ for basename in validated_basenames:
 
         if args.runlocal:
             job = postprocess.do_postprocess_run( basename, prefix=args.prefix,
-                                    auto_output_path = True )
+                                    auto_output_path = True, force=args.force )
 
         else:
             job = postprocess.do_postprocess_run.delay( basename, prefix=args.prefix,
-                                    auto_output_path = True )
+                                    auto_output_path = True, force=args.force )
 
 
     else:
-        print("Dry run, skipping...")
+        logging.warning("Dry run, skipping...")
