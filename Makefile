@@ -62,7 +62,7 @@ CLIENT_ENV = -e NAS_ACCESS_KEY=covistestdata \
 						 -e POSTPROC_PREFIX=test
 
 DOCKER_RUN=docker run --rm -it --network ${COVISTEST_NETWORK} ${CLIENT_ENV} \
-							-v ${CURDIR}/${TEST_STACK_SSH_DIR}/keys:/tmp/sshkeys:ro
+							-v ${CURDIR}/${TEST_STACK_SSH_KEYS_DIR}/ssh_keys:/tmp/sshkeys:ro
 DOCKER_RUN_TEST=${DOCKER_RUN} ${TEST_TAG}
 
 
@@ -74,8 +74,9 @@ test_sftp_import_diffuse_local: docker reset_test_db_dmas_oldnas  check_test_sta
 																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
 
 test_sftp_import_local: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
-	${DOCKER_RUN_TEST} 	apps/import_sftp.py  --run-local --log DEBUG \
-																	--privkey /tmp/sshkeys/id_rsa --force sftp://sftp:22/
+	${DOCKER_RUN_TEST} 	apps/import_sftp.py --log DEBUG \
+																	--run-local \
+																	--privkey /tmp/sshkeys/id_rsa sftp://sftp:22/
 
 test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 	${DOCKER_RUN_TEST} 	apps/import_sftp.py --log DEBUG \
@@ -91,9 +92,11 @@ test_sftp_import: docker reset_test_db_dmas_oldnas  check_test_stack_ssh_keys
 # 					s3://raw/2019/10/24/COVIS-20191024T003346-diffuse3.7z \
 # 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T003346-diffuse3
 
-test_postprocess_diffuse3: docker
-	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG \
-					COVIS-20191024T003346-diffuse3
+test_postprocess_diffuse3: docker reset_test_db_post_import
+	${DOCKER_RUN_TEST} apps/queue_postprocess.py  --log DEBUG --run-local \
+					COVIS-20200403T103002-diffuse1
+
+					#COVIS-20191024T003346-diffuse3
 
 
 # test_postprocess_imaging1_local:
@@ -102,14 +105,14 @@ test_postprocess_diffuse3: docker
 # 					s3://raw/2019/10/24/COVIS-20191024T000002-imaging1.7z \
 # 					--output    s3://postprocessed/2019/10/24/COVIS-20191024T000002-imaging1.7z
 
-test_postprocess_imaging1: docker
+test_postprocess_imaging1: docker reset_test_db_post_import
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
 					COVIS-20191024T000002-imaging1.7z
 
-test_postprocess_regex: docker
+test_postprocess_regex: docker reset_test_db_post_import
 	${DOCKER_RUN_TEST} apps/queue_postprocess.py --log DEBUG \
 					--prefix "test-regex" \
-					--regex ".*20191024T.*"
+					--regex "COVIS-201.*"
 
 
 # == Test for existence of required docker services =================
@@ -142,16 +145,16 @@ check_test_data:
   fi
 
 ## Generate SSH keys for test SFTP server in Docker-Compose and pytest
-check_test_stack_ssh_keys: ${TESTDATA_DIR}/tmp/ssh_keys/keys/id_rsa.pub
+TEST_STACK_SSH_KEYS_DIR=${TESTDATA_DIR}/tmp/
 
-TEST_STACK_SSH_DIR=${TESTDATA_DIR}/tmp/ssh_keys
+check_test_stack_ssh_keys: ${TEST_STACK_SSH_KEYS_DIR}/ssh_keys/id_rsa.pub
 
-${TEST_STACK_SSH_DIR}/keys/id_rsa.pub:
-	mkdir -p ${TEST_STACK_SSH_DIR}/keys
-	ssh-keygen -N "" -t ed25519 -f ${TEST_STACK_SSH_DIR}/ssh_host_ed25519_key < /dev/null
-	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/ssh_host_rsa_key < /dev/null
-	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_DIR}/keys/id_rsa < /dev/null
-	chmod 644 ${TEST_STACK_SSH_DIR}/keys/id_rsa    # Overrule normal permissions so it can be used in Docker images with different UIDs
+${TEST_STACK_SSH_KEYS_DIR}/ssh_keys/id_rsa.pub:
+	mkdir -p ${TEST_STACK_SSH_KEYS_DIR}/ssh_keys ${TEST_STACK_SSH_KEYS_DIR}/host_keys
+	ssh-keygen -N "" -t ed25519 -f ${TEST_STACK_SSH_KEYS_DIR}/host_keys/ssh_host_ed25519_key < /dev/null
+	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_KEYS_DIR}/host_keys/ssh_host_rsa_key < /dev/null
+	ssh-keygen -N "" -t rsa -b 4096 -f ${TEST_STACK_SSH_KEYS_DIR}/ssh_keys/id_rsa < /dev/null
+	chmod 644 ${TEST_STACK_SSH_KEYS_DIR}/ssh_keys/id_rsa    # Overrule normal permissions so it can be used in Docker images with different UIDs
 
 # == Tasks for bootstrapping the database in the test network ==
 
@@ -168,6 +171,12 @@ reset_test_db_post_import:
  						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
  						mongoimport --verbose --host mongodb:27017 \
 						 						--db ${MONGODB_DB} --collection runs --drop
+
+save_test_db_post_import:
+	@docker exec -i \
+ 						$$(docker-compose --file ${TESTDATA_DIR}/docker-compose.yml ps -q mongodb)  \
+ 						mongoexport --quiet --host mongodb:27017 \
+						--db ${MONGODB_DB} --collection runs > test_stack/db_dumps/post_import.json
 
 dump_test_db:
 	@docker exec -i \
@@ -187,10 +196,10 @@ else
 endif
 
 covis_worker/static_git_info.py:
-	echo "def add_static_git_info( d ):\n" > $@
-	printf "   d[\"covis_worker_gitrev\"] = '%s'\n" ${GITREV} >> $@
-	printf "   d[\"covis_worker_gittags\"] = '%s'\n" ${GITTAG} >> $@
-	printf "   d[\"covis_worker_git_dirty\"] = %s\n" ${GITDIRTY} >> $@
+	echo "def static_git_info():\n" > $@
+	printf "   return { \"covis_worker_gitrev\": '%s',\n" ${GITREV} >> $@
+	printf "   \"covis_worker_gittags\": '%s',\n" ${GITTAG} >> $@
+	printf "   \"covis_worker_git_dirty\": %s }\n" ${GITDIRTY} >> $@
 
 
 .PHONY: help \
