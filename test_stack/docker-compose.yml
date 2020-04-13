@@ -51,9 +51,9 @@ services:
     image: 'atmoz/sftp:alpine'
     volumes:
       - ./sftp-host:/home/covis
-      - ./tmp/ssh_keys/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key
-      - ./tmp/ssh_keys/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key
-      - ./tmp/ssh_keys/keys/:/home/covis/.ssh/keys/:ro
+      - ./tmp/host_keys/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key
+      - ./tmp/host_keys/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key
+      - ./tmp/ssh_keys/:/home/covis/.ssh/keys/:ro
     networks:
       - covistest
     environment:
