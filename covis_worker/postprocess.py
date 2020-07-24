@@ -63,9 +63,9 @@ def do_postprocess( input, output, prefix = "", auto_output_path=False, force = 
 
     if exists:
         if force:
-            logging.warning("Output mat file exists but --force specified, recreating.")
+            logging.warning("Output mat file %s exists but --force specified, recreating." % dest_path )
         else:
-            logging.warning("Output mat file exists ... skipping")
+            logging.warning("Output mat file %s exists ... skipping" % dest_path )
             return None
 
 
@@ -122,6 +122,6 @@ def do_postprocess( input, output, prefix = "", auto_output_path=False, force = 
 
         output.fput_object(file_path=(output_path/output_file), object_name=dest )
 
-        logging.debug("Uploaded %s to bucket %s, path %s" % (output_file,output.bucket,dest) )
+        logging.info("Uploaded %s to bucket %s, path %s" % (output_file,output.bucket,dest) )
 
     logging.info("Finished processing %s" %  input.basename )

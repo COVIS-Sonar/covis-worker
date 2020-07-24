@@ -16,6 +16,10 @@ from datetime import datetime
 from covis_worker import postprocess
 
 
+#
+# apps/queue_postprocess.py --regex COVIS-202007.*
+#
+
 parser = argparse.ArgumentParser()
 
 # parser.add_argument('--config', default=config('PROCESS_CONFIG',""),
