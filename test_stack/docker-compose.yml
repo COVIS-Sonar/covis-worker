@@ -1,0 +1,60 @@
+#
+# Launches all services necessary for _local testing_
+# Data is _not_ persisted
+#
+version: '3.7'
+
+networks:
+  covistest:
+    attachable: true
+
+services:
+  mongodb:
+    image: 'bitnami/mongodb:3.6'
+    networks:
+      - covistest
+    ports:
+      - "${COVIS_TEST_MONGO_PORT:-27017}:27017"
+
+  rabbitmq:
+    image: 'bitnami/rabbitmq:3.7'
+    labels:
+      kompose.service.type: nodeport
+    networks:
+      - covistest
+    ports:
+      - '4369:4369'
+      - '5672:5672'
+      - '25672:25672'
+      - '15672:15672'
+    environment:
+      RABBITMQ_DISK_FREE_LIMIT: 1000000000
+
+  covis-nas:
+    image: minio/minio
+    volumes:
+      - ./covis-nas/:/data
+    networks:
+      - covistest
+    environment:
+      MINIO_ACCESS_KEY: covistestdata
+      MINIO_SECRET_KEY: covistestdata
+    command: server /data
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    #   interval: 30s
+    #   timeout: 20s
+    #   retries: 3
+
+  ## SFTP service emulates the RSN SFTP site
+  sftp:
+    image: 'atmoz/sftp:alpine'
+    volumes:
+      - ./sftp-host:/home/covis
+      - ./tmp/host_keys/ssh_host_ed25519_key:/etc/ssh/ssh_host_ed25519_key
+      - ./tmp/host_keys/ssh_host_rsa_key:/etc/ssh/ssh_host_rsa_key
+      - ./tmp/ssh_keys/:/home/covis/.ssh/keys/:ro
+    networks:
+      - covistest
+    environment:
+      - SFTP_USERS=covis:coviscovis

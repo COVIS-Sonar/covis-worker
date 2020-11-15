@@ -1,3 +1,5 @@
-covis-test-data/
+test_stack/
+seed_data/
+notebooks/
 .git/
 backup_prod/

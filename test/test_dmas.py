@@ -1,6 +1,6 @@
 
 
-from covis_db import remote
+from covis_db import accessor
 
 import shutil
 import logging
@@ -25,7 +25,7 @@ def test_retrieve_dmas():
 
             output = Path(tempdir) / d
 
-            access = remote.DmasAccessor(d)
+            access = accessor.DmasAccessor(d)
             assert(access)
 
             r = access.reader()

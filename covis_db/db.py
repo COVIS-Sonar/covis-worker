@@ -13,7 +13,7 @@ import glob
 from pathlib import Path
 
 from os import path
-from . import remote,hosts,misc
+from . import accessor,hosts,misc
 
 
 def retry(num_tries, exceptions):
@@ -42,7 +42,6 @@ class CovisDB:
             self.client = db_client
         else:
             mongo_url = config('MONGODB_URL', default="mongodb://localhost/")
-            print("Connecting to %s" % mongo_url)
             self.client = MongoClient(mongo_url)
 
         self.db = self.client[config('MONGODB_DB', default='covisprod')]
@@ -54,6 +53,11 @@ class CovisDB:
             return CovisRun(r,collection=self.runs)
         else:
             return None
+
+    def find_regex(self, reg):
+        results = self.runs.find( {'basename' : {"$regex" : reg}} )
+
+        return [ CovisRun(r,collection=self.runs) for r in results ]
 
     def insert_run(self, run):
         self.runs.replace_one({'basename':run.basename}, run.json, upsert=True)
@@ -104,6 +108,9 @@ class CovisRun:
         self.collection = collection
         self.json = json
 
+    def toJSON(self):
+        return self.json
+
     @property
     def basename(self):
         return self.json["basename"]
@@ -129,6 +136,8 @@ class CovisRun:
         #entry = {'host': host } #, 'filename': filename}
         #print("Searching for %s" % entry)
 
+        host = host.upper()
+
         if self.collection:
             f = self.collection.find_one({'basename': self.basename,
                                             'raw.host': {'$eq': host } } )
@@ -136,7 +145,6 @@ class CovisRun:
             ## Find the matching element in the raw array
             if f:
                 for r in f['raw']:
-                    logging.info(r)
                     if r['host'] == host:
                         return CovisRaw(r)
 
@@ -149,6 +157,8 @@ class CovisRun:
                     return_document=ReturnDocument.AFTER)
 
     def add_raw(self,host,filename=None,filesize=None, make_filename=False,suffix='.7z'):
+
+        host = host.upper()
 
         if not hosts.validate_host(host):
             logging.warning("Invalid host %s" % host)
@@ -228,13 +238,13 @@ class CovisRaw:
 
     def accessor(self):
         if hosts.is_old_nas(self.host):
-            return remote.OldCovisNasAccessor(self)
+            return accessor.OldCovisNasAccessor(self)
         elif hosts.is_nas(self.host):
-            return remote.CovisNasAccessor(self)
+            return accessor.CovisNasAccessor(self)
         elif hosts.is_dmas(self.host):
-            return remote.DmasAccessor(path=self.filename)
+            return accessor.DmasAccessor(path=self.filename)
         elif hosts.is_wasabi(self.host):
-            return remote.WasabiAccessor(path=self.filename)
+            return accessor.WasabiAccessor(path=self.filename)
 
     def reader(self):
         return self.accessor().reader()

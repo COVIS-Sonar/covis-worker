@@ -8,7 +8,7 @@ def covisdb():
     db = CovisDB()
     db.db.drop_collection('runs')
 
-    data = open('seed_data/seed_data.json').read()
+    data = open('test_stack/db_dumps/dmas_oldnas.json').read()
     jdata = json_util.loads(data)
     db.db.runs.insert_many(jdata)
 

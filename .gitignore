@@ -11,3 +11,4 @@ dump.json
 
 docker.env
 do_sync_covis_sftp.sh
+static_git_info.py
