@@ -194,7 +194,26 @@ def rezip_from_sftp(sftp_url, dest_host, dest_fmt='7z', tempdir=None,
 
         ## Forces decode as gz file for now
         with tarfile.open(str(destfile),mode=mode) as tf:
-            tf.extractall(path=decompressed_path)
+            def is_within_directory(directory, target):
+                
+                abs_directory = os.path.abspath(directory)
+                abs_target = os.path.abspath(target)
+            
+                prefix = os.path.commonprefix([abs_directory, abs_target])
+                
+                return prefix == abs_directory
+            
+            def safe_extract(tar, path=".", members=None, *, numeric_owner=False):
+            
+                for member in tar.getmembers():
+                    member_path = os.path.join(path, member.name)
+                    if not is_within_directory(path, member_path):
+                        raise Exception("Attempted Path Traversal in Tar File")
+            
+                tar.extractall(path, members, numeric_owner=numeric_owner) 
+                
+            
+            safe_extract(tf, path=decompressed_path)
             mem = tf.getmembers()
 
             ## Generate metainfo about members
